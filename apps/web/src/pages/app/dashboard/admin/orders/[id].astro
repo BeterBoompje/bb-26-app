@@ -150,7 +150,7 @@ function fmt(iso: string | null) {
       <div class="info-card qr-card">
         <p class="card-label">QR Code</p>
         <img
-          src={`/api/pickup-qr?id=${target.id}`}
+          src={`/api/pickup-qr?code=${encodeURIComponent(target.qr_value)}`}
           alt={`QR code voor ${order?.shopify_name}`}
           class="qr-img"
           width="180"

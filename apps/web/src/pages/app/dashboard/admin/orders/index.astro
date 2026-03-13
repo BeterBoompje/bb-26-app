@@ -97,16 +97,16 @@ function fmt(iso: string | null) {
   <!-- Filter bar -->
   <form method="GET" class="filter-bar">
     <select name="status" class="filter-select">
-      <option value="" selected={!status}>Alle statussen</option>
+      <option value="" {...(!status ? { selected: true } : {})}>Alle statussen</option>
       {Object.entries(STATUS_LABELS).map(([val, label]) => (
-        <option value={val} selected={status === val}>{label}</option>
+        <option value={val} {...(status === val ? { selected: true } : {})}>{label}</option>
       ))}
     </select>
 
     <select name="location_id" class="filter-select">
-      <option value="" selected={!locId}>Alle locaties</option>
+      <option value="" {...(!locId ? { selected: true } : {})}>Alle locaties</option>
       {(locations ?? []).map((loc) => (
-        <option value={loc.id} selected={locId === loc.id}>
+        <option value={loc.id} {...(locId === loc.id ? { selected: true } : {})}>
           {loc.name} ({loc.city})
         </option>
       ))}
