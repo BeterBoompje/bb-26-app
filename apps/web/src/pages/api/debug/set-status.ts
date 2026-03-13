@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { requireAdmin } from "../../../lib/auth";
+import { createAdminClient } from "../../../lib/supabase/admin";
 
 const ALLOWED_STATUSES = ["ready", "blocked", "picked_up", "reversed", "expired"] as const;
 type PickupStatus = typeof ALLOWED_STATUSES[number];
@@ -28,7 +29,16 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: "Geen toegang — admin vereist" }), { status: 403 });
   }
 
-  const { supabase, session, profile } = auth;
+  const { session, profile } = auth;
+
+  // Gebruik admin client (service role) om RLS te omzeilen voor debug-operaties.
+  // Auth is al geverifieerd via requireAdmin hierboven.
+  let adminDb: ReturnType<typeof createAdminClient>;
+  try {
+    adminDb = createAdminClient();
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+  }
 
   let body: { pickup_target_id?: string; status?: string };
   try {
@@ -51,7 +61,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   // Haal huidige status op
-  const { data: current, error: fetchErr } = await supabase
+  const { data: current, error: fetchErr } = await adminDb
     .from("pickup_targets")
     .select("id, pickup_status")
     .eq("id", pickup_target_id)
@@ -80,7 +90,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     updatePayload.eligibility_status = null;
   }
 
-  const { error: updateErr } = await supabase
+  const { error: updateErr } = await adminDb
     .from("pickup_targets")
     .update(updatePayload)
     .eq("id", pickup_target_id);
@@ -90,7 +100,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   // Log in pickup_events
-  await supabase.from("pickup_events").insert({
+  await adminDb.from("pickup_events").insert({
     pickup_target_id,
     event_type: "manual_override",
     result: "success",
@@ -100,7 +110,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   // Log in admin_overrides
   if (profile?.id) {
-    await supabase.from("admin_overrides").insert({
+    await adminDb.from("admin_overrides").insert({
       target_type: "pickup_target",
       target_id: pickup_target_id,
       action_type: "debug_set_status",

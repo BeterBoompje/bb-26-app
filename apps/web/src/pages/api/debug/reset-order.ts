@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { requireAdmin } from "../../../lib/auth";
+import { createAdminClient } from "../../../lib/supabase/admin";
 
 /**
  * POST /api/debug/reset-order
@@ -19,7 +20,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: "Geen toegang — admin vereist" }), { status: 403 });
   }
 
-  const { supabase, session, profile } = auth;
+  const { session, profile } = auth;
+
+  // Gebruik admin client (service role) om RLS te omzeilen voor debug-operaties.
+  let adminDb: ReturnType<typeof createAdminClient>;
+  try {
+    adminDb = createAdminClient();
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+  }
 
   let body: { pickup_target_id?: string };
   try {
@@ -34,7 +43,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   // Haal huidige status op voor de audit log
-  const { data: current, error: fetchErr } = await supabase
+  const { data: current, error: fetchErr } = await adminDb
     .from("pickup_targets")
     .select("id, pickup_status")
     .eq("id", pickup_target_id)
@@ -47,7 +56,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const prevStatus = current.pickup_status;
 
   // 1. Reset pickup_target naar 'ready'
-  const { error: updateErr } = await supabase
+  const { error: updateErr } = await adminDb
     .from("pickup_targets")
     .update({
       pickup_status: "ready",
@@ -63,7 +72,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   // 2. Log in pickup_events (manual_override is een bestaande enum waarde)
-  await supabase.from("pickup_events").insert({
+  await adminDb.from("pickup_events").insert({
     pickup_target_id,
     event_type: "manual_override",
     result: "success",
@@ -73,7 +82,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   // 3. Log in admin_overrides voor audit trail
   if (profile?.id) {
-    await supabase.from("admin_overrides").insert({
+    await adminDb.from("admin_overrides").insert({
       target_type: "pickup_target",
       target_id: pickup_target_id,
       action_type: "debug_reset",
