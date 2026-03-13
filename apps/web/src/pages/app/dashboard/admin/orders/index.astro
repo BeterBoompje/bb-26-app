@@ -95,15 +95,15 @@ function fmt(iso: string | null) {
   </div>
 
   <!-- Filter bar -->
-  <form method="GET" class="filter-bar">
-    <select name="status" class="filter-select">
+  <form method="GET" class="filter-bar" id="filter-form">
+    <select name="status" class="filter-select" data-autosubmit>
       <option value="" {...(!status ? { selected: true } : {})}>Alle statussen</option>
       {Object.entries(STATUS_LABELS).map(([val, label]) => (
         <option value={val} {...(status === val ? { selected: true } : {})}>{label}</option>
       ))}
     </select>
 
-    <select name="location_id" class="filter-select">
+    <select name="location_id" class="filter-select" data-autosubmit>
       <option value="" {...(!locId ? { selected: true } : {})}>Alle locaties</option>
       {(locations ?? []).map((loc) => (
         <option value={loc.id} {...(locId === loc.id ? { selected: true } : {})}>
@@ -118,10 +118,11 @@ function fmt(iso: string | null) {
       value={search}
       placeholder="Zoek op naam, e-mail, bestelnr…"
       class="filter-search"
+      id="filter-search"
       autocomplete="off"
     />
 
-    <button type="submit" class="btn-filter">Filteren</button>
+    <button type="submit" class="btn-filter" id="btn-filter">Filteren</button>
     {(status || locId || search) && (
       <a href="/app/dashboard/admin/orders" class="btn-filter-reset">Wis filters</a>
     )}
@@ -256,14 +257,28 @@ function fmt(iso: string | null) {
   .filter-search:focus { border-color: #10b981; }
 
   .btn-filter {
-    background: #10b981;
-    color: #fff;
+    background: #374151;
+    color: #9ca3af;
     font-weight: 700;
     font-size: 0.875rem;
     padding: 0.5rem 1rem;
     border-radius: 0.5rem;
-    border: none;
+    border: 1px solid #4b5563;
     cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .btn-filter.pending {
+    background: #10b981;
+    color: #fff;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+    animation: pulse-green 1.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-green {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25); }
+    50%       { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.10); }
   }
 
   .btn-filter-reset {
@@ -349,3 +364,25 @@ function fmt(iso: string | null) {
   .error-msg { color: #fca5a5; padding: 1rem; }
   .empty-msg { color: #6b7280; padding: 2rem; text-align: center; font-size: 0.9rem; }
 </style>
+
+<script>
+  // Selects → direct submit on change
+  document.querySelectorAll<HTMLSelectElement>("[data-autosubmit]").forEach((el) => {
+    el.addEventListener("change", () => (el.closest("form") as HTMLFormElement)?.submit());
+  });
+
+  // Search input → highlight filter button when value differs from applied value
+  const searchInput = document.getElementById("filter-search") as HTMLInputElement | null;
+  const filterBtn   = document.getElementById("btn-filter");
+
+  if (searchInput && filterBtn) {
+    const applied = searchInput.defaultValue; // server-rendered value = currently applied
+
+    const sync = () => {
+      filterBtn.classList.toggle("pending", searchInput.value !== applied);
+    };
+
+    searchInput.addEventListener("input", sync);
+    sync(); // run once on load (handles browser autofill edge case)
+  }
+</script>
