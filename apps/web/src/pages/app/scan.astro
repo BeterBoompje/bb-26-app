@@ -450,6 +450,27 @@ const { data: locations } = await auth.supabase
     -webkit-tap-highlight-color: transparent;
   }
 
+  .btn-secondary {
+    background: #374151 !important;
+    color: #f9fafb !important;
+  }
+
+  .btn-view-details {
+    display: block;
+    width: 100%;
+    background: transparent;
+    color: #6b7280;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.65rem;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    margin-top: 0.4rem;
+    text-align: center;
+    text-decoration: none;
+  }
+
   .btn-close-panel {
     display: block;
     width: 100%;
@@ -650,13 +671,19 @@ const { data: locations } = await auth.supabase
     // Vibrate on valid
     if (eligibility === "valid" && navigator.vibrate) navigator.vibrate([60, 40, 60]);
 
-    const viewBtn = eligibility === "valid" && target
-      ? `<a class="btn-view-order" href="/app/order/${target.id}">Bekijk bestelling →</a>`
-      : "";
+    let actionBtns = "";
+    if (eligibility === "valid" && target) {
+      actionBtns = `
+        <a class="btn-view-order" href="/app/order/${target.id}/check-info">✓ Afhandelen</a>
+        <a class="btn-view-details" href="/app/order/${target.id}">Bekijk bestellingdetails</a>
+      `;
+    } else if (eligibility === "already_picked_up" && target) {
+      actionBtns = `<a class="btn-view-order btn-secondary" href="/app/order/${target.id}">Bekijk bestelling →</a>`;
+    }
 
     const closeBtn = `<button class="btn-close-panel" id="btn-close-panel">Sluiten</button>`;
 
-    showPanel(buildCard(`${icon} ${label}`, orderRef, name, type) + viewBtn + closeBtn);
+    showPanel(buildCard(`${icon} ${label}`, orderRef, name, type) + actionBtns + closeBtn);
 
     document.getElementById("btn-close-panel")?.addEventListener("click", closePanel);
   }
