@@ -63,7 +63,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       issued_at: null,
       issued_by: null,
       last_event_id: null,
-      eligibility_status: null,
+      // eligibility_status heeft NOT NULL constraint — laat staan op huidige waarde
     })
     .eq("id", pickup_target_id);
 

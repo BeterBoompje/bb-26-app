@@ -82,12 +82,11 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     updatePayload.issued_by = session.user.id;
   }
 
-  // Bij reset naar ready: wis issued velden
+  // Bij reset naar ready: wis issued velden (eligibility_status NOT NULL, dus niet aanraken)
   if (status === "ready") {
     updatePayload.issued_at = null;
     updatePayload.issued_by = null;
     updatePayload.last_event_id = null;
-    updatePayload.eligibility_status = null;
   }
 
   const { error: updateErr } = await adminDb
