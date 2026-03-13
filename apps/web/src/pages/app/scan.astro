@@ -63,20 +63,19 @@ const { data: locations } = await auth.supabase
 <script>
   import { Html5Qrcode } from "html5-qrcode";
 
-  /** @type {Html5Qrcode | null} */
   let qrScanner = null;
   let selectedLocationId = "";
   let lastScanned = "";
   let lastScannedTimeout = 0;
 
-  const locationSelect = /** @type {HTMLSelectElement} */ (document.getElementById("location-select"));
-  const btnStartCamera = /** @type {HTMLButtonElement} */ (document.getElementById("btn-start-camera"));
-  const btnStopCamera = /** @type {HTMLButtonElement} */ (document.getElementById("btn-stop-camera"));
-  const btnSearch = /** @type {HTMLButtonElement} */ (document.getElementById("btn-search"));
-  const qrInput = /** @type {HTMLInputElement} */ (document.getElementById("qr-input"));
-  const scanForm = /** @type {HTMLFormElement} */ (document.getElementById("scan-form"));
-  const resultDiv = /** @type {HTMLDivElement} */ (document.getElementById("scan-result"));
-  const qrReaderDiv = /** @type {HTMLDivElement} */ (document.getElementById("qr-reader"));
+  const locationSelect = document.getElementById("location-select");
+  const btnStartCamera = document.getElementById("btn-start-camera");
+  const btnStopCamera = document.getElementById("btn-stop-camera");
+  const btnSearch = document.getElementById("btn-search");
+  const qrInput = document.getElementById("qr-input");
+  const scanForm = document.getElementById("scan-form");
+  const resultDiv = document.getElementById("scan-result");
+  const qrReaderDiv = document.getElementById("qr-reader");
 
   // Herstel locatie uit localStorage
   const savedLocation = localStorage.getItem("bb_location_id");

@@ -11,5 +11,9 @@ export default defineConfig({
     server: {
       allowedHosts: true,
     },
+    // Zorg dat html5-qrcode bij opstarten gebundeld wordt (niet pas bij eerste request)
+    optimizeDeps: {
+      include: ["html5-qrcode"],
+    },
   },
 });
