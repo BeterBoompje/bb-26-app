@@ -1,0 +1,324 @@
+---
+import DashboardLayout from "../../../../layouts/DashboardLayout.astro";
+import { requireStaff } from "../../../../lib/auth";
+
+const auth = await requireStaff(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+if (auth.forbidden) return Astro.redirect("/app");
+
+const { supabase, profile } = auth;
+
+const locationId = profile?.default_location_id;
+
+// Locatie info
+const { data: location } = locationId
+  ? await supabase
+      .from("locations")
+      .select("id, name, city")
+      .eq("id", locationId)
+      .single()
+  : { data: null };
+
+// Status tellingen voor deze locatie
+let statusCounts: Record<string, number> = {};
+if (locationId) {
+  const { data: targets } = await supabase
+    .from("pickup_targets")
+    .select("pickup_status")
+    .eq("intended_location_id", locationId);
+
+  for (const row of targets ?? []) {
+    statusCounts[row.pickup_status] = (statusCounts[row.pickup_status] ?? 0) + 1;
+  }
+}
+
+// Recente bestellingen voor deze locatie (laatste 30)
+const { data: recent } = locationId
+  ? await supabase
+      .from("pickup_targets")
+      .select(`
+        id, qr_value, pickup_status, payment_status, created_at, issued_at,
+        shopify_orders (
+          shopify_name,
+          shopify_customers (first_name, last_name)
+        )
+      `)
+      .eq("intended_location_id", locationId)
+      .order("created_at", { ascending: false })
+      .limit(30)
+  : { data: [] };
+
+// ── Helpers ────────────────────────────────────────────────
+const STATUS_LABELS: Record<string, string> = {
+  ready:      "Klaar",
+  blocked:    "Geblokkeerd",
+  picked_up:  "Opgehaald",
+  reversed:   "Teruggedraaid",
+  expired:    "Verlopen",
+};
+
+const STATUS_BADGE: Record<string, string> = {
+  ready:      "badge-green",
+  blocked:    "badge-yellow",
+  picked_up:  "badge-blue",
+  reversed:   "badge-gray",
+  expired:    "badge-red",
+};
+
+function fmt(iso: string | null) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("nl-NL", {
+    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
+}
+---
+
+<DashboardLayout title="Locatie Dashboard" userName={profile?.full_name}>
+
+  <div class="dash-header">
+    <div class="location-badge-row">
+      <span class="location-badge">
+        📍 {location ? `${location.name}, ${location.city}` : "Geen locatie ingesteld"}
+      </span>
+      <a href="/app/scan" class="btn-scanner">📷 Scanner openen</a>
+    </div>
+    <h1 class="dash-title">Mijn locatie</h1>
+  </div>
+
+  {!locationId && (
+    <div class="alert alert-warn">
+      ⚠ Geen standaard locatie ingesteld voor dit account. Vraag een admin om een locatie toe te wijzen.
+    </div>
+  )}
+
+  <!-- Status tellers -->
+  <div class="stat-grid">
+    <div class="stat-card stat-green">
+      <p class="stat-label">Klaar om af te halen</p>
+      <p class="stat-value">{statusCounts["ready"] ?? 0}</p>
+    </div>
+    <div class="stat-card stat-blue">
+      <p class="stat-label">Opgehaald</p>
+      <p class="stat-value">{statusCounts["picked_up"] ?? 0}</p>
+    </div>
+    <div class="stat-card stat-yellow">
+      <p class="stat-label">Geblokkeerd</p>
+      <p class="stat-value">{statusCounts["blocked"] ?? 0}</p>
+    </div>
+    <div class="stat-card stat-gray">
+      <p class="stat-label">Totaal</p>
+      <p class="stat-value">
+        {Object.values(statusCounts).reduce((s, n) => s + n, 0)}
+      </p>
+    </div>
+  </div>
+
+  <!-- Recente bestellingen -->
+  <div class="section-block">
+    <h2 class="section-title">Recente bestellingen</h2>
+
+    {(!recent || recent.length === 0)
+      ? <p class="empty-msg">Geen bestellingen gevonden voor deze locatie.</p>
+      : (
+        <div class="table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Bestelling</th>
+                <th>Klant</th>
+                <th>Status</th>
+                <th>Aangemaakt</th>
+                <th>Afgehaald</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recent.map((t: any) => {
+                const order    = t.shopify_orders;
+                const customer = order?.shopify_customers;
+                const name     = customer
+                  ? `${customer.first_name ?? ""} ${customer.last_name ?? ""}`.trim()
+                  : "—";
+                return (
+                  <tr>
+                    <td class="td-mono">{order?.shopify_name ?? "—"}</td>
+                    <td class="td-name">{name}</td>
+                    <td>
+                      <span class={`badge ${STATUS_BADGE[t.pickup_status] ?? "badge-gray"}`}>
+                        {STATUS_LABELS[t.pickup_status] ?? t.pickup_status}
+                      </span>
+                    </td>
+                    <td class="td-sub">{fmt(t.created_at)}</td>
+                    <td class="td-sub">{fmt(t.issued_at)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+  </div>
+
+</DashboardLayout>
+
+<style>
+  .dash-header {
+    margin-bottom: 2rem;
+    padding-top: 0.5rem;
+  }
+
+  .location-badge-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .location-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid #374151;
+    border-radius: 2rem;
+    padding: 0.35rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #f9fafb;
+  }
+
+  .btn-scanner {
+    background: #10b981;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.875rem;
+    padding: 0.5rem 1.1rem;
+    border-radius: 0.6rem;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .dash-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #f9fafb;
+  }
+
+  /* ── Alert ── */
+  .alert {
+    padding: 0.85rem 1rem;
+    border-radius: 0.6rem;
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .alert-warn {
+    background: #78350f;
+    border: 1px solid #f59e0b;
+    color: #fde68a;
+  }
+
+  /* ── Stats ── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 0.85rem;
+    padding: 1.1rem 1.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9ca3af;
+    margin-bottom: 0.4rem;
+  }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .stat-green  .stat-value { color: #10b981; }
+  .stat-blue   .stat-value { color: #6366f1; }
+  .stat-yellow .stat-value { color: #f59e0b; }
+  .stat-gray   .stat-value { color: #9ca3af; }
+
+  /* ── Section ── */
+  .section-block { margin-bottom: 2rem; }
+
+  .section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+    margin-bottom: 0.85rem;
+  }
+
+  /* ── Table ── */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 0.85rem;
+    border: 1px solid #374151;
+  }
+
+  .dash-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .dash-table th {
+    background: #1f2937;
+    color: #6b7280;
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.65rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #374151;
+  }
+
+  .dash-table td {
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid #374151;
+    color: #e5e7eb;
+  }
+
+  .dash-table tr:last-child td { border-bottom: none; }
+  .dash-table tr:hover td { background: rgba(255,255,255,0.025); }
+
+  .td-name { font-weight: 600; color: #f9fafb; }
+  .td-sub  { font-size: 0.8rem; color: #9ca3af; }
+  .td-mono { font-family: monospace; font-weight: 600; color: #f9fafb; }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .badge-green  { background: #064e3b; color: #6ee7b7; }
+  .badge-blue   { background: #1e1b4b; color: #a5b4fc; }
+  .badge-yellow { background: #78350f; color: #fde68a; }
+  .badge-red    { background: #7f1d1d; color: #fca5a5; }
+  .badge-gray   { background: #374151; color: #9ca3af; }
+
+  .empty-msg { color: #6b7280; text-align: center; padding: 2rem; font-size: 0.875rem; }
+</style>

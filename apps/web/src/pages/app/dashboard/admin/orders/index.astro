@@ -1,0 +1,351 @@
+---
+import DashboardLayout from "../../../../../layouts/DashboardLayout.astro";
+import { requireAdmin } from "../../../../../lib/auth";
+
+const auth = await requireAdmin(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+if (auth.forbidden) return Astro.redirect("/app");
+
+const { supabase, profile } = auth;
+
+// ── URL filters ────────────────────────────────────────────
+const url    = new URL(Astro.request.url);
+const status = url.searchParams.get("status") ?? "";
+const locId  = url.searchParams.get("location_id") ?? "";
+const search = url.searchParams.get("q") ?? "";
+
+// ── Locaties voor filter dropdown ──────────────────────────
+const { data: locations } = await supabase
+  .from("locations")
+  .select("id, name, city")
+  .eq("is_active", true)
+  .order("name");
+
+// ── Bestellingen query ─────────────────────────────────────
+let query = supabase
+  .from("pickup_targets")
+  .select(`
+    id, qr_value, pickup_status, payment_status, created_at, issued_at,
+    shopify_orders!inner (
+      shopify_name, cancelled_at,
+      shopify_customers (first_name, last_name, email)
+    ),
+    locations!intended_location_id (name, city)
+  `)
+  .order("created_at", { ascending: false })
+  .limit(100);
+
+if (status) {
+  query = query.eq("pickup_status", status);
+}
+if (locId) {
+  query = query.eq("intended_location_id", locId);
+}
+
+const { data: targets, error } = await query;
+
+// Client-side zoekfilter (na ophalen, zodat Supabase geen ILIKE met joins hoeft)
+const filtered = search
+  ? (targets ?? []).filter((t: any) => {
+      const q = search.toLowerCase();
+      return (
+        t.shopify_orders?.shopify_name?.toLowerCase().includes(q) ||
+        t.shopify_orders?.shopify_customers?.email?.toLowerCase().includes(q) ||
+        `${t.shopify_orders?.shopify_customers?.first_name} ${t.shopify_orders?.shopify_customers?.last_name}`.toLowerCase().includes(q) ||
+        t.qr_value?.toLowerCase().includes(q)
+      );
+    })
+  : (targets ?? []);
+
+// ── Helpers ────────────────────────────────────────────────
+const STATUS_LABELS: Record<string, string> = {
+  ready:      "Klaar",
+  blocked:    "Geblokkeerd",
+  picked_up:  "Opgehaald",
+  reversed:   "Teruggedraaid",
+  expired:    "Verlopen",
+};
+
+const STATUS_BADGE: Record<string, string> = {
+  ready:      "badge-green",
+  blocked:    "badge-yellow",
+  picked_up:  "badge-blue",
+  reversed:   "badge-gray",
+  expired:    "badge-red",
+};
+
+function fmt(iso: string | null) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("nl-NL", {
+    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
+}
+---
+
+<DashboardLayout title="Bestellingen" userName={profile?.full_name}>
+
+  <div class="dash-header">
+    <div class="dash-header-row">
+      <div>
+        <h1 class="dash-title">Bestellingen</h1>
+        <p class="dash-subtitle">{filtered.length} resultaten</p>
+      </div>
+      <a href="/app/dashboard/admin" class="back-link">← Overzicht</a>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <form method="GET" class="filter-bar">
+    <select name="status" class="filter-select">
+      <option value="" selected={!status}>Alle statussen</option>
+      {Object.entries(STATUS_LABELS).map(([val, label]) => (
+        <option value={val} selected={status === val}>{label}</option>
+      ))}
+    </select>
+
+    <select name="location_id" class="filter-select">
+      <option value="" selected={!locId}>Alle locaties</option>
+      {(locations ?? []).map((loc) => (
+        <option value={loc.id} selected={locId === loc.id}>
+          {loc.name} ({loc.city})
+        </option>
+      ))}
+    </select>
+
+    <input
+      name="q"
+      type="search"
+      value={search}
+      placeholder="Zoek op naam, e-mail, bestelnr…"
+      class="filter-search"
+      autocomplete="off"
+    />
+
+    <button type="submit" class="btn-filter">Filteren</button>
+    {(status || locId || search) && (
+      <a href="/app/dashboard/admin/orders" class="btn-filter-reset">Wis filters</a>
+    )}
+  </form>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    {error && <p class="error-msg">Fout bij ophalen: {error.message}</p>}
+
+    {filtered.length === 0
+      ? <p class="empty-msg">Geen bestellingen gevonden.</p>
+      : (
+        <table class="dash-table">
+          <thead>
+            <tr>
+              <th>Bestelling</th>
+              <th>Klant</th>
+              <th>Status</th>
+              <th>Betaling</th>
+              <th>Locatie</th>
+              <th>Aangemaakt</th>
+              <th>Afgehaald</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((t: any) => {
+              const order    = t.shopify_orders;
+              const customer = order?.shopify_customers;
+              const loc      = t.locations;
+              const name     = customer
+                ? `${customer.first_name ?? ""} ${customer.last_name ?? ""}`.trim()
+                : "—";
+
+              return (
+                <tr>
+                  <td class="td-mono">{order?.shopify_name ?? "—"}</td>
+                  <td>
+                    <p class="td-name">{name}</p>
+                    <p class="td-sub">{customer?.email ?? ""}</p>
+                  </td>
+                  <td>
+                    <span class={`badge ${STATUS_BADGE[t.pickup_status] ?? "badge-gray"}`}>
+                      {STATUS_LABELS[t.pickup_status] ?? t.pickup_status}
+                    </span>
+                    {order?.cancelled_at && (
+                      <span class="badge badge-red" style="margin-left:0.35rem">Geannuleerd</span>
+                    )}
+                  </td>
+                  <td>
+                    <span class={`badge ${t.payment_status === "paid" ? "badge-green" : "badge-yellow"}`}>
+                      {t.payment_status}
+                    </span>
+                  </td>
+                  <td class="td-sub">{loc ? `${loc.name}` : "—"}</td>
+                  <td class="td-sub">{fmt(t.created_at)}</td>
+                  <td class="td-sub">{fmt(t.issued_at)}</td>
+                  <td>
+                    <a href={`/app/dashboard/admin/orders/${t.id}`} class="btn-row-detail">
+                      Detail →
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )
+    }
+  </div>
+
+</DashboardLayout>
+
+<style>
+  .dash-header {
+    margin-bottom: 1.5rem;
+    padding-top: 0.5rem;
+  }
+
+  .dash-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .dash-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #f9fafb;
+  }
+
+  .dash-subtitle {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 0.15rem;
+  }
+
+  .back-link {
+    color: #10b981;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    padding-top: 0.35rem;
+  }
+
+  /* ── Filters ── */
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
+    align-items: center;
+  }
+
+  .filter-select,
+  .filter-search {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 0.5rem;
+    color: #f9fafb;
+    font-size: 0.875rem;
+    padding: 0.5rem 0.85rem;
+    outline: none;
+  }
+
+  .filter-select { min-width: 160px; }
+  .filter-search { min-width: 220px; flex: 1; }
+
+  .filter-select:focus,
+  .filter-search:focus { border-color: #10b981; }
+
+  .btn-filter {
+    background: #10b981;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-filter-reset {
+    color: #9ca3af;
+    font-size: 0.875rem;
+    text-decoration: none;
+    padding: 0.5rem 0.25rem;
+  }
+
+  .btn-filter-reset:hover { color: #f9fafb; }
+
+  /* ── Table ── */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 0.85rem;
+    border: 1px solid #374151;
+  }
+
+  .dash-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .dash-table th {
+    background: #1f2937;
+    color: #6b7280;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #374151;
+    white-space: nowrap;
+  }
+
+  .dash-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #374151;
+    color: #e5e7eb;
+    vertical-align: middle;
+  }
+
+  .dash-table tr:last-child td { border-bottom: none; }
+  .dash-table tr:hover td { background: rgba(255,255,255,0.025); }
+
+  .td-name { font-weight: 600; color: #f9fafb; }
+  .td-sub  { font-size: 0.8rem; color: #9ca3af; margin-top: 0.1rem; }
+  .td-mono { font-family: monospace; font-weight: 700; color: #f9fafb; }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  .badge-green  { background: #064e3b; color: #6ee7b7; }
+  .badge-blue   { background: #1e1b4b; color: #a5b4fc; }
+  .badge-yellow { background: #78350f; color: #fde68a; }
+  .badge-red    { background: #7f1d1d; color: #fca5a5; }
+  .badge-gray   { background: #374151; color: #9ca3af; }
+
+  .btn-row-detail {
+    color: #10b981;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid #10b981;
+    border-radius: 0.4rem;
+    transition: background 0.1s;
+  }
+
+  .btn-row-detail:hover { background: rgba(16,185,129,0.1); }
+
+  .error-msg { color: #fca5a5; padding: 1rem; }
+  .empty-msg { color: #6b7280; padding: 2rem; text-align: center; font-size: 0.9rem; }
+</style>

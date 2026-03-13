@@ -1,0 +1,529 @@
+---
+import DashboardLayout from "../../../../../layouts/DashboardLayout.astro";
+import { requireAdmin } from "../../../../../lib/auth";
+
+const auth = await requireAdmin(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+if (auth.forbidden) return Astro.redirect("/app");
+
+const { supabase, profile } = auth;
+const { id } = Astro.params;
+
+// ── Pickup target met joins ────────────────────────────────
+const { data: target, error } = await supabase
+  .from("pickup_targets")
+  .select(`
+    id, qr_value, pickup_status, payment_status, eligibility_status,
+    created_at, issued_at,
+    intended_location_id,
+    shopify_orders (
+      id, shopify_name, financial_status, cancelled_at, tags,
+      shopify_customers (first_name, last_name, email, phone),
+      shopify_order_items (id, sku, title, variant_title, quantity, product_type)
+    ),
+    locations!intended_location_id (name, city)
+  `)
+  .eq("id", id)
+  .single();
+
+if (error || !target) return Astro.redirect("/app/dashboard/admin/orders");
+
+const order    = target.shopify_orders as any;
+const customer = order?.shopify_customers;
+const items    = (order?.shopify_order_items ?? []) as any[];
+const location = target.locations as any;
+
+const customerName = customer
+  ? `${customer.first_name ?? ""} ${customer.last_name ?? ""}`.trim()
+  : "Onbekend";
+
+// ── Pickup event history ───────────────────────────────────
+const { data: events } = await supabase
+  .from("pickup_events")
+  .select(`
+    id, event_type, result, created_at, notes, qr_value,
+    staff_profiles!staff_user_id (full_name),
+    locations!location_id (name)
+  `)
+  .eq("pickup_target_id", id)
+  .order("created_at", { ascending: false });
+
+// ── Helpers ────────────────────────────────────────────────
+const STATUS_LABELS: Record<string, string> = {
+  ready:      "Klaar",
+  blocked:    "Geblokkeerd",
+  picked_up:  "Opgehaald",
+  reversed:   "Teruggedraaid",
+  expired:    "Verlopen",
+};
+
+const STATUS_BADGE: Record<string, string> = {
+  ready:      "badge-green",
+  blocked:    "badge-yellow",
+  picked_up:  "badge-blue",
+  reversed:   "badge-gray",
+  expired:    "badge-red",
+};
+
+const RESULT_BADGE: Record<string, string> = {
+  success:          "badge-green",
+  not_found:        "badge-red",
+  already_picked_up:"badge-blue",
+  cancelled:        "badge-red",
+  unpaid:           "badge-yellow",
+  wrong_location:   "badge-yellow",
+  invalid_qr:       "badge-red",
+  error:            "badge-red",
+};
+
+function fmt(iso: string | null) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("nl-NL", {
+    day: "2-digit", month: "2-digit", year: "2-digit",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+---
+
+<DashboardLayout title={`Bestelling ${order?.shopify_name ?? id}`} userName={profile?.full_name}>
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb">
+    <a href="/app/dashboard/admin/orders">← Bestellingen</a>
+    <span class="breadcrumb-sep">/</span>
+    <span>{order?.shopify_name ?? id}</span>
+  </div>
+
+  <div class="detail-grid">
+
+    <!-- ── LEFT: Order info ──────────────────────────────── -->
+    <div class="detail-left">
+
+      <!-- Customer block -->
+      <div class="info-card">
+        <p class="card-label">Klant</p>
+        <p class="customer-name">{customerName}</p>
+        {customer?.email && <p class="info-row"><span class="info-icon">✉</span>{customer.email}</p>}
+        {customer?.phone && <p class="info-row"><span class="info-icon">📞</span>{customer.phone}</p>}
+      </div>
+
+      <!-- Order meta -->
+      <div class="info-card">
+        <p class="card-label">Bestelling</p>
+        <div class="meta-pair">
+          <span class="meta-key">Referentie</span>
+          <span class="meta-val mono">{order?.shopify_name ?? "—"}</span>
+        </div>
+        <div class="meta-pair">
+          <span class="meta-key">Betaling</span>
+          <span class={`badge ${target.payment_status === "paid" ? "badge-green" : "badge-yellow"}`}>
+            {target.payment_status}
+          </span>
+        </div>
+        {order?.cancelled_at && (
+          <div class="meta-pair">
+            <span class="meta-key">Status</span>
+            <span class="badge badge-red">Geannuleerd</span>
+          </div>
+        )}
+        <div class="meta-pair">
+          <span class="meta-key">Locatie</span>
+          <span class="meta-val">{location ? `${location.name}, ${location.city}` : "—"}</span>
+        </div>
+        <div class="meta-pair">
+          <span class="meta-key">Aangemaakt</span>
+          <span class="meta-val">{fmt(target.created_at)}</span>
+        </div>
+        {target.issued_at && (
+          <div class="meta-pair">
+            <span class="meta-key">Afgehaald om</span>
+            <span class="meta-val">{fmt(target.issued_at)}</span>
+          </div>
+        )}
+        <div class="meta-pair">
+          <span class="meta-key">QR-waarde</span>
+          <span class="meta-val mono">{target.qr_value}</span>
+        </div>
+      </div>
+
+      <!-- QR Code -->
+      <div class="info-card qr-card">
+        <p class="card-label">QR Code</p>
+        <img
+          src={`/api/pickup-qr?id=${target.id}`}
+          alt={`QR code voor ${order?.shopify_name}`}
+          class="qr-img"
+          width="180"
+          height="180"
+        />
+        <p class="qr-note">Scan deze code in de scanner app om de flow te testen.</p>
+        <a href={`/app/order/${target.id}`} class="link-scanner" target="_blank">
+          Open in scanner →
+        </a>
+      </div>
+
+      <!-- Products -->
+      <div class="info-card">
+        <p class="card-label">Producten ({items.length})</p>
+        {items.length === 0
+          ? <p class="empty-sub">Geen producten gevonden</p>
+          : items.map((item: any) => (
+            <div class="product-row">
+              <span class="product-qty">{item.quantity}×</span>
+              <div>
+                <p class="product-title">{item.title}</p>
+                {item.variant_title && <p class="product-variant">{item.variant_title}</p>}
+                {item.sku && <p class="product-sku">{item.sku}</p>}
+              </div>
+            </div>
+          ))
+        }
+      </div>
+
+    </div>
+
+    <!-- ── RIGHT: Debug tools ────────────────────────────── -->
+    <div class="detail-right">
+
+      <!-- Current status -->
+      <div class="info-card">
+        <p class="card-label">Huidige status</p>
+        <span class={`badge badge-lg ${STATUS_BADGE[target.pickup_status] ?? "badge-gray"}`}>
+          {STATUS_LABELS[target.pickup_status] ?? target.pickup_status}
+        </span>
+        {target.eligibility_status && (
+          <p class="info-sub" style="margin-top:0.5rem">
+            Eligibility: <code>{target.eligibility_status}</code>
+          </p>
+        )}
+      </div>
+
+      <!-- Debug tools -->
+      <div class="info-card debug-card">
+        <p class="card-label">🔧 Debug tools</p>
+
+        <!-- Reset -->
+        <div class="debug-section">
+          <p class="debug-desc">Zet de bestelling terug naar <strong>klaar</strong> voor herhaald testen:</p>
+          <button id="btn-reset" class="btn-debug btn-reset" data-id={target.id}>
+            ↺ Reset naar 'klaar'
+          </button>
+        </div>
+
+        <hr class="debug-hr" />
+
+        <!-- Set status -->
+        <div class="debug-section">
+          <p class="debug-desc">Simuleer een specifiek scenario:</p>
+          <div class="status-picker">
+            <select id="status-select" class="filter-select" style="flex:1">
+              <option value="ready">Klaar (scanbaar)</option>
+              <option value="blocked">Geblokkeerd</option>
+              <option value="picked_up">Al opgehaald</option>
+              <option value="reversed">Teruggedraaid</option>
+              <option value="expired">Verlopen</option>
+            </select>
+            <button id="btn-set-status" class="btn-debug btn-set" data-id={target.id}>
+              Instellen
+            </button>
+          </div>
+        </div>
+
+        <!-- Feedback -->
+        <div id="debug-result" class="debug-result" style="display:none"></div>
+      </div>
+
+      <!-- Pickup event history -->
+      <div class="info-card">
+        <p class="card-label">Scan / event history ({events?.length ?? 0})</p>
+        {(!events || events.length === 0)
+          ? <p class="empty-sub">Nog geen events</p>
+          : (
+            <div class="event-list">
+              {events.map((ev: any) => {
+                const staff = (ev as any).staff_profiles?.full_name ?? "—";
+                const loc   = (ev as any).locations?.name ?? "—";
+                return (
+                  <div class="event-row">
+                    <div class="event-meta">
+                      <span class={`badge ${RESULT_BADGE[ev.result] ?? "badge-gray"}`}>
+                        {ev.result}
+                      </span>
+                      <span class="event-type">{ev.event_type}</span>
+                      <span class="event-time">{fmt(ev.created_at)}</span>
+                    </div>
+                    <div class="event-detail">
+                      {ev.notes && <span class="event-notes">{ev.notes}</span>}
+                      <span class="event-staff">{staff} @ {loc}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        }
+      </div>
+
+    </div>
+  </div>
+
+</DashboardLayout>
+
+<script>
+  const btnReset     = document.getElementById("btn-reset");
+  const btnSetStatus = document.getElementById("btn-set-status");
+  const statusSelect = document.getElementById("status-select") as HTMLSelectElement;
+  const resultEl     = document.getElementById("debug-result");
+
+  function showResult(msg: string, ok: boolean) {
+    resultEl.style.display = "block";
+    resultEl.className = `debug-result ${ok ? "debug-result-ok" : "debug-result-err"}`;
+    resultEl.textContent = msg;
+  }
+
+  async function postDebug(url: string, body: object): Promise<boolean> {
+    const res  = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showResult(`✓ Status: ${data.previous_status} → ${data.new_status}`, true);
+      // Reload after short delay so new status is visible
+      setTimeout(() => window.location.reload(), 800);
+      return true;
+    } else {
+      showResult("✗ " + (data.error ?? "Onbekende fout"), false);
+      return false;
+    }
+  }
+
+  btnReset?.addEventListener("click", async () => {
+    btnReset.disabled = true;
+    btnReset.textContent = "Bezig…";
+    const id = (btnReset as HTMLElement).dataset.id!;
+    await postDebug("/api/debug/reset-order", { pickup_target_id: id });
+    btnReset.disabled = false;
+    btnReset.textContent = "↺ Reset naar 'klaar'";
+  });
+
+  btnSetStatus?.addEventListener("click", async () => {
+    btnSetStatus.disabled = true;
+    btnSetStatus.textContent = "Bezig…";
+    const id     = (btnSetStatus as HTMLElement).dataset.id!;
+    const status = statusSelect.value;
+    await postDebug("/api/debug/set-status", { pickup_target_id: id, status });
+    btnSetStatus.disabled = false;
+    btnSetStatus.textContent = "Instellen";
+  });
+</script>
+
+<style>
+  /* ── Breadcrumb ── */
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+    padding-top: 0.5rem;
+  }
+
+  .breadcrumb a { color: #10b981; text-decoration: none; font-weight: 600; }
+  .breadcrumb-sep { color: #6b7280; }
+  .breadcrumb span:last-child { color: #9ca3af; }
+
+  /* ── 2-col grid ── */
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .detail-grid { grid-template-columns: 1fr; }
+    .detail-right { order: -1; }
+  }
+
+  /* ── Info cards ── */
+  .info-card {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 0.85rem;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .card-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+    margin-bottom: 0.85rem;
+  }
+
+  .customer-name {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #f9fafb;
+    margin-bottom: 0.5rem;
+  }
+
+  .info-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.875rem;
+    color: #9ca3af;
+    margin-top: 0.25rem;
+  }
+
+  .info-icon { font-size: 0.9rem; }
+
+  .meta-pair {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #374151;
+    gap: 1rem;
+  }
+
+  .meta-pair:last-child { border-bottom: none; }
+
+  .meta-key { font-size: 0.8rem; color: #9ca3af; white-space: nowrap; }
+  .meta-val { font-size: 0.875rem; color: #e5e7eb; text-align: right; }
+  .mono { font-family: monospace; }
+
+  .info-sub { font-size: 0.8rem; color: #6b7280; }
+  .info-sub code { background: rgba(0,0,0,0.3); padding: 0.1rem 0.35rem; border-radius: 0.25rem; }
+
+  /* ── QR card ── */
+  .qr-card { text-align: center; }
+  .qr-img {
+    display: block;
+    margin: 0 auto 0.75rem;
+    border-radius: 0.5rem;
+    background: #fff;
+    padding: 0.5rem;
+  }
+  .qr-note { font-size: 0.8rem; color: #9ca3af; margin-bottom: 0.75rem; }
+  .link-scanner {
+    color: #10b981;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  /* ── Products ── */
+  .product-row {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #374151;
+    align-items: flex-start;
+  }
+  .product-row:last-child { border-bottom: none; }
+  .product-qty { font-size: 1rem; font-weight: 800; color: #f9fafb; min-width: 1.75rem; }
+  .product-title { font-size: 0.875rem; font-weight: 600; color: #f9fafb; }
+  .product-variant { font-size: 0.8rem; color: #10b981; margin-top: 0.1rem; }
+  .product-sku { font-size: 0.75rem; color: #6b7280; font-family: monospace; }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  .badge-lg { font-size: 0.85rem; padding: 0.35rem 0.9rem; }
+
+  .badge-green  { background: #064e3b; color: #6ee7b7; }
+  .badge-blue   { background: #1e1b4b; color: #a5b4fc; }
+  .badge-yellow { background: #78350f; color: #fde68a; }
+  .badge-red    { background: #7f1d1d; color: #fca5a5; }
+  .badge-gray   { background: #374151; color: #9ca3af; }
+
+  /* ── Debug card ── */
+  .debug-card { border-color: #4b5563; }
+  .debug-section { margin-bottom: 0.85rem; }
+  .debug-hr { border: none; border-top: 1px solid #374151; margin: 0.85rem 0; }
+  .debug-desc { font-size: 0.82rem; color: #9ca3af; margin-bottom: 0.6rem; }
+  .debug-desc strong { color: #e5e7eb; }
+
+  .status-picker { display: flex; gap: 0.5rem; }
+
+  .filter-select {
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 0.5rem;
+    color: #f9fafb;
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+    outline: none;
+  }
+
+  .filter-select:focus { border-color: #10b981; }
+
+  .btn-debug {
+    font-weight: 700;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.1s;
+  }
+
+  .btn-debug:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-reset { background: #10b981; color: #fff; width: 100%; }
+  .btn-set   { background: #6366f1; color: #fff; }
+
+  .debug-result {
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 0.5rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+  }
+
+  .debug-result-ok  { background: #064e3b; border: 1px solid #10b981; color: #a7f3d0; }
+  .debug-result-err { background: #7f1d1d; border: 1px solid #ef4444; color: #fca5a5; }
+
+  /* ── Event history ── */
+  .event-list { display: flex; flex-direction: column; gap: 0.5rem; }
+
+  .event-row {
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 0.5rem;
+    padding: 0.6rem 0.85rem;
+  }
+
+  .event-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.25rem;
+  }
+
+  .event-type { font-size: 0.78rem; color: #9ca3af; }
+  .event-time { font-size: 0.75rem; color: #6b7280; margin-left: auto; }
+
+  .event-detail { display: flex; flex-direction: column; gap: 0.15rem; }
+  .event-notes { font-size: 0.8rem; color: #e5e7eb; }
+  .event-staff  { font-size: 0.75rem; color: #6b7280; }
+
+  .empty-sub { font-size: 0.875rem; color: #6b7280; }
+</style>

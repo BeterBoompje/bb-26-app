@@ -1,0 +1,356 @@
+---
+import DashboardLayout from "../../../../layouts/DashboardLayout.astro";
+import { requireAdmin } from "../../../../lib/auth";
+
+const auth = await requireAdmin(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+if (auth.forbidden) return Astro.redirect("/app");
+
+const { supabase, profile } = auth;
+
+// ── Stats: pickup targets per status ──────────────────────
+const { data: statusCounts } = await supabase
+  .from("pickup_targets")
+  .select("pickup_status")
+  .then(({ data }) => {
+    const counts: Record<string, number> = {};
+    for (const row of data ?? []) {
+      counts[row.pickup_status] = (counts[row.pickup_status] ?? 0) + 1;
+    }
+    return { data: counts };
+  });
+
+// ── Pickup events last 24h ─────────────────────────────────
+const since24h = new Date(Date.now() - 86400_000).toISOString();
+const { data: recentEvents } = await supabase
+  .from("pickup_events")
+  .select("event_type, result")
+  .gte("created_at", since24h);
+
+const successScans = recentEvents?.filter(e => e.result === "success").length ?? 0;
+const totalEvents  = recentEvents?.length ?? 0;
+
+// ── Location readiness (existing view) ─────────────────────
+const { data: locationReadiness } = await supabase
+  .from("location_readiness")
+  .select("*")
+  .order("location_name");
+
+// ── Sync health (existing view) ────────────────────────────
+const { data: syncHealth } = await supabase
+  .from("admin_sync_health")
+  .select("*")
+  .limit(1)
+  .single()
+  .then(r => r);
+---
+
+<DashboardLayout title="Admin Overzicht" userName={profile?.full_name}>
+
+  <div class="dash-header">
+    <h1 class="dash-title">Debug Dashboard</h1>
+    <p class="dash-subtitle">Intern QA & testinterface</p>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="stat-grid">
+    <div class="stat-card stat-green">
+      <p class="stat-label">Klaar om af te halen</p>
+      <p class="stat-value">{statusCounts?.["ready"] ?? 0}</p>
+    </div>
+    <div class="stat-card stat-blue">
+      <p class="stat-label">Opgehaald (totaal)</p>
+      <p class="stat-value">{statusCounts?.["picked_up"] ?? 0}</p>
+    </div>
+    <div class="stat-card stat-yellow">
+      <p class="stat-label">Scans vandaag (24h)</p>
+      <p class="stat-value">{totalEvents}</p>
+      <p class="stat-sub">{successScans} succesvol</p>
+    </div>
+    <div class="stat-card {syncHealth?.has_sync_issue ? 'stat-red' : 'stat-green'}">
+      <p class="stat-label">Sync status</p>
+      <p class="stat-value">{syncHealth?.has_sync_issue ? "⚠ Probleem" : "✓ OK"}</p>
+      {syncHealth?.last_synced && (
+        <p class="stat-sub">Laatste sync: {new Date(syncHealth.last_synced).toLocaleTimeString("nl-NL")}</p>
+      )}
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="section-block">
+    <h2 class="section-title">Snelle acties</h2>
+    <div class="action-row">
+      <a href="/app/dashboard/admin/orders" class="btn-dash-primary">
+        📋 Alle bestellingen
+      </a>
+      <button id="btn-create-test" class="btn-dash-secondary">
+        🧪 Testbestelling aanmaken / resetten
+      </button>
+      <div id="test-order-result" class="test-result" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- Location readiness -->
+  {locationReadiness && locationReadiness.length > 0 && (
+    <div class="section-block">
+      <h2 class="section-title">Locatie overzicht</h2>
+      <div class="table-wrap">
+        <table class="dash-table">
+          <thead>
+            <tr>
+              <th>Locatie</th>
+              <th>Klaar</th>
+              <th>Opgehaald</th>
+              <th>Totaal</th>
+              <th>Geldig &amp; klaar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {locationReadiness.map((loc: any) => (
+              <tr>
+                <td class="td-name">{loc.location_name}</td>
+                <td><span class="badge badge-green">{loc.ready ?? 0}</span></td>
+                <td><span class="badge badge-blue">{loc.picked_up ?? 0}</span></td>
+                <td>{loc.total_targets ?? 0}</td>
+                <td><span class="badge badge-green">{loc.valid_and_ready ?? 0}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )}
+
+</DashboardLayout>
+
+<script>
+  const btn = document.getElementById("btn-create-test");
+  const resultEl = document.getElementById("test-order-result");
+
+  btn?.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.textContent = "Bezig…";
+    resultEl.style.display = "none";
+
+    const res = await fetch("/api/debug/create-test-order", { method: "POST" });
+    const data = await res.json();
+
+    btn.disabled = false;
+    btn.textContent = "🧪 Testbestelling aanmaken / resetten";
+
+    resultEl.style.display = "block";
+    if (data.pickup_target_id) {
+      resultEl.className = "test-result test-result-ok";
+      resultEl.innerHTML = `
+        ✓ ${data.message}<br>
+        QR-waarde: <code>${data.qr_value}</code><br>
+        <a href="/app/dashboard/admin/orders/${data.pickup_target_id}">→ Bekijk in dashboard</a>
+        &nbsp;|&nbsp;
+        <a href="/app/order/${data.pickup_target_id}">→ Open in scanner</a>
+      `;
+    } else {
+      resultEl.className = "test-result test-result-err";
+      resultEl.textContent = "Fout: " + (data.error ?? "Onbekende fout");
+    }
+  });
+</script>
+
+<style>
+  .dash-header {
+    margin-bottom: 2rem;
+    padding-top: 0.5rem;
+  }
+
+  .dash-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #f9fafb;
+    line-height: 1.2;
+  }
+
+  .dash-subtitle {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+  }
+
+  /* ── Stat cards ── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 0.85rem;
+    padding: 1.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9ca3af;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .stat-sub {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 0.35rem;
+  }
+
+  .stat-green .stat-value { color: #10b981; }
+  .stat-blue  .stat-value { color: #6366f1; }
+  .stat-yellow .stat-value { color: #f59e0b; }
+  .stat-red   .stat-value { color: #ef4444; }
+
+  /* ── Sections ── */
+  .section-block {
+    margin-bottom: 2.5rem;
+  }
+
+  .section-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+    margin-bottom: 1rem;
+  }
+
+  /* ── Action row ── */
+  .action-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .btn-dash-primary {
+    background: #10b981;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 0.65rem 1.25rem;
+    border-radius: 0.6rem;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-dash-secondary {
+    background: #1f2937;
+    color: #f9fafb;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 0.65rem 1.25rem;
+    border-radius: 0.6rem;
+    border: 1px solid #374151;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .btn-dash-secondary:hover { background: #374151; }
+  .btn-dash-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .test-result {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border-radius: 0.6rem;
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  .test-result-ok {
+    background: #064e3b;
+    border: 1px solid #10b981;
+    color: #a7f3d0;
+  }
+
+  .test-result-ok a {
+    color: #6ee7b7;
+    font-weight: 600;
+  }
+
+  .test-result-ok code {
+    background: rgba(0,0,0,0.3);
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.3rem;
+    font-family: monospace;
+  }
+
+  .test-result-err {
+    background: #7f1d1d;
+    border: 1px solid #ef4444;
+    color: #fca5a5;
+  }
+
+  /* ── Table ── */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 0.75rem;
+    border: 1px solid #374151;
+  }
+
+  .dash-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .dash-table th {
+    background: #1f2937;
+    color: #9ca3af;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #374151;
+  }
+
+  .dash-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #374151;
+    color: #e5e7eb;
+  }
+
+  .dash-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .dash-table tr:hover td {
+    background: rgba(255,255,255,0.02);
+  }
+
+  .td-name {
+    font-weight: 600;
+    color: #f9fafb;
+  }
+
+  /* ── Badges ── */
+  .badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 1rem;
+  }
+
+  .badge-green  { background: #064e3b; color: #6ee7b7; }
+  .badge-blue   { background: #1e1b4b; color: #a5b4fc; }
+  .badge-yellow { background: #78350f; color: #fde68a; }
+  .badge-red    { background: #7f1d1d; color: #fca5a5; }
+  .badge-gray   { background: #374151; color: #9ca3af; }
+</style>
