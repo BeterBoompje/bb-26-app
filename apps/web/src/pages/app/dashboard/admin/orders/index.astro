@@ -158,14 +158,14 @@ function fmt(iso: string | null) {
                 : "—";
 
               return (
-                <tr>
+                <tr data-target-id={t.id}>
                   <td class="td-mono">{order?.shopify_name ?? "—"}</td>
                   <td>
                     <p class="td-name">{name}</p>
                     <p class="td-sub">{customer?.email ?? ""}</p>
                   </td>
                   <td>
-                    <span class={`badge ${STATUS_BADGE[t.pickup_status] ?? "badge-gray"}`}>
+                    <span class={`badge ${STATUS_BADGE[t.pickup_status] ?? "badge-gray"}`} data-status-badge>
                       {STATUS_LABELS[t.pickup_status] ?? t.pickup_status}
                     </span>
                     {order?.cancelled_at && (
@@ -363,6 +363,13 @@ function fmt(iso: string | null) {
 
   .error-msg { color: #fca5a5; padding: 1rem; }
   .empty-msg { color: #6b7280; padding: 2rem; text-align: center; font-size: 0.9rem; }
+
+  /* Live update flash */
+  .badge-updated {
+    outline: 2px solid #10b981;
+    outline-offset: 2px;
+    transition: outline 0.3s;
+  }
 </style>
 
 <script>
@@ -385,4 +392,41 @@ function fmt(iso: string | null) {
     searchInput.addEventListener("input", sync);
     sync(); // run once on load (handles browser autofill edge case)
   }
+</script>
+
+<script define:vars={{ STATUS_LABELS, STATUS_BADGE }}>
+  // ── Live status polling voor de tabel (elke 20 seconden) ──
+  const rows = Array.from(document.querySelectorAll("tr[data-target-id]"));
+  if (rows.length === 0) return;
+
+  const ids = rows.map((r) => r.dataset.targetId).filter(Boolean);
+
+  async function pollStatuses() {
+    try {
+      const res = await fetch(`/api/orders/statuses?ids=${ids.join(",")}`);
+      if (!res.ok) return;
+      const data = await res.json();
+
+      rows.forEach((row) => {
+        const id        = row.dataset.targetId;
+        const newStatus = data[id];
+        if (!newStatus) return;
+
+        const badge = row.querySelector("[data-status-badge]");
+        if (!badge) return;
+
+        const currentText = badge.textContent?.trim();
+        const newText     = STATUS_LABELS[newStatus] ?? newStatus;
+        if (currentText === newText) return;
+
+        badge.textContent = newText;
+        badge.className   = `badge ${STATUS_BADGE[newStatus] ?? "badge-gray"}`;
+        // Korte highlight om te laten zien dat er iets veranderd is
+        badge.classList.add("badge-updated");
+        setTimeout(() => badge.classList.remove("badge-updated"), 2000);
+      });
+    } catch { /* stil falen */ }
+  }
+
+  setInterval(pollStatuses, 20000);
 </script>

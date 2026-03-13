@@ -187,8 +187,8 @@ function fmt(iso: string | null) {
 
       <!-- Current status -->
       <div class="info-card">
-        <p class="card-label">Huidige status</p>
-        <span class={`badge badge-lg ${STATUS_BADGE[target.pickup_status] ?? "badge-gray"}`}>
+        <p class="card-label">Huidige status <span id="live-indicator" class="live-dot" title="Live updates actief">●</span></p>
+        <span id="current-status-badge" class={`badge badge-lg ${STATUS_BADGE[target.pickup_status] ?? "badge-gray"}`}>
           {STATUS_LABELS[target.pickup_status] ?? target.pickup_status}
         </span>
         {target.eligibility_status && (
@@ -269,7 +269,36 @@ function fmt(iso: string | null) {
 
 </DashboardLayout>
 
-<script>
+<script define:vars={{ _targetId: target.id, _initialStatus: target.pickup_status, STATUS_LABELS, STATUS_BADGE }}>
+  // ── Live status polling (elke 5 seconden) ──────────────────
+  const badge      = document.getElementById("current-status-badge");
+  const liveIndicator = document.getElementById("live-indicator");
+  let currentStatus = _initialStatus;
+
+  async function pollStatus() {
+    try {
+      const res  = await fetch(`/api/orders/statuses?ids=${_targetId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const newStatus = data[_targetId];
+      if (newStatus && newStatus !== currentStatus) {
+        currentStatus = newStatus;
+        if (badge) {
+          badge.textContent = STATUS_LABELS[newStatus] ?? newStatus;
+          badge.className   = `badge badge-lg ${STATUS_BADGE[newStatus] ?? "badge-gray"}`;
+        }
+        // Flash de indicator
+        if (liveIndicator) {
+          liveIndicator.classList.add("live-dot-flash");
+          setTimeout(() => liveIndicator.classList.remove("live-dot-flash"), 1000);
+        }
+      }
+    } catch { /* stil falen */ }
+  }
+
+  setInterval(pollStatus, 5000);
+
+  // ── Debug tools ──────────────────────────────────────────────
   const btnReset     = document.getElementById("btn-reset");
   const btnSetStatus = document.getElementById("btn-set-status");
   const statusSelect = document.getElementById("status-select") as HTMLSelectElement;
@@ -320,6 +349,27 @@ function fmt(iso: string | null) {
 </script>
 
 <style>
+  /* ── Live indicator ── */
+  .live-dot {
+    font-size: 0.6rem;
+    color: #10b981;
+    margin-left: 0.4rem;
+    opacity: 0.5;
+    animation: live-pulse 3s ease-in-out infinite;
+    vertical-align: middle;
+  }
+
+  @keyframes live-pulse {
+    0%, 100% { opacity: 0.4; }
+    50%       { opacity: 1; }
+  }
+
+  .live-dot-flash {
+    opacity: 1 !important;
+    color: #34d399;
+    animation: none;
+  }
+
   /* ── Breadcrumb ── */
   .breadcrumb {
     display: flex;
