@@ -1,0 +1,20 @@
+{
+  "name": "bb-app",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/node": "^9.0.0",
+    "@supabase/supabase-js": "^2.49.1",
+    "astro": "^5.0.0",
+    "html5-qrcode": "^2.3.8"
+  },
+  "devDependencies": {
+    "supabase": "^2.78.1"
+  }
+}

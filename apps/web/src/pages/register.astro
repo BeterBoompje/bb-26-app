@@ -1,0 +1,27 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Registreren">
+  <div class="max-width-small" style="margin-left: auto; margin-right: auto;">
+    <div class="margin-bottom-medium">
+      <h1 class="heading-style-h3">Registreren</h1>
+      <p class="text-size-regular">Al een account? <a href="/signin">Inloggen</a></p>
+    </div>
+    <div class="form_component">
+      <form class="form_form" action="/api/auth/register" method="post">
+        <div class="form_field-wrapper">
+          <label class="form_label" for="email">E-mailadres</label>
+          <input class="form_input" type="email" name="email" id="email" required />
+        </div>
+        <div class="form_field-wrapper">
+          <label class="form_label" for="password">Wachtwoord</label>
+          <input class="form_input" type="password" name="password" id="password" required />
+        </div>
+        <div class="margin-top-medium">
+          <button class="button" type="submit">Registreren</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</Layout>

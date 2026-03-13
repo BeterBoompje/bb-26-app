@@ -1,0 +1,276 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { requireAuth } from "../../lib/auth";
+
+const auth = await requireAuth(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+
+const { data: locations } = await auth.supabase
+  .from("locations")
+  .select("id, name, city, code")
+  .eq("is_active", true)
+  .order("name");
+
+---
+
+<Layout title="Scanner">
+  <div class="margin-bottom-medium">
+    <h1 class="heading-style-h3">Scanner</h1>
+  </div>
+
+  <!-- Locatie selector -->
+  <div class="form_component margin-bottom-medium">
+    <div class="form_field-wrapper">
+      <label class="form_label" for="location-select">Locatie</label>
+      <select class="form_input" id="location-select">
+        <option value="">— Selecteer locatie —</option>
+        {(locations ?? []).map((loc) => (
+          <option value={loc.id}>{loc.name} ({loc.city})</option>
+        ))}
+      </select>
+    </div>
+  </div>
+
+  <!-- Camera preview -->
+  <div id="qr-reader" style="display:none; border-radius: 0.5rem; overflow: hidden; margin-bottom: 0.75rem;"></div>
+
+  <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+    <button class="button is-secondary" id="btn-start-camera" disabled>Camera starten</button>
+    <button class="button is-secondary" id="btn-stop-camera" style="display:none">Stop camera</button>
+  </div>
+
+  <!-- Handmatig invoeren -->
+  <div class="form_component margin-bottom-medium">
+    <form id="scan-form">
+      <div class="form_field-wrapper">
+        <label class="form_label" for="qr-input">Handmatig invoeren</label>
+        <input class="form_input" type="text" id="qr-input" placeholder="QR-code of bestelnummer" autocomplete="off" />
+      </div>
+      <div class="margin-top-small">
+        <button class="button" type="submit" id="btn-search" disabled>Zoeken</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Resultaat -->
+  <div id="scan-result" class="margin-top-medium"></div>
+
+  <div class="margin-top-large">
+    <a class="button is-text" href="/app">← Terug</a>
+  </div>
+</Layout>
+
+<script>
+  import { Html5Qrcode } from "html5-qrcode";
+
+  /** @type {Html5Qrcode | null} */
+  let qrScanner = null;
+  let selectedLocationId = "";
+  let lastScanned = "";
+  let lastScannedTimeout = 0;
+
+  const locationSelect = /** @type {HTMLSelectElement} */ (document.getElementById("location-select"));
+  const btnStartCamera = /** @type {HTMLButtonElement} */ (document.getElementById("btn-start-camera"));
+  const btnStopCamera = /** @type {HTMLButtonElement} */ (document.getElementById("btn-stop-camera"));
+  const btnSearch = /** @type {HTMLButtonElement} */ (document.getElementById("btn-search"));
+  const qrInput = /** @type {HTMLInputElement} */ (document.getElementById("qr-input"));
+  const scanForm = /** @type {HTMLFormElement} */ (document.getElementById("scan-form"));
+  const resultDiv = /** @type {HTMLDivElement} */ (document.getElementById("scan-result"));
+  const qrReaderDiv = /** @type {HTMLDivElement} */ (document.getElementById("qr-reader"));
+
+  // Herstel locatie uit localStorage
+  const savedLocation = localStorage.getItem("bb_location_id");
+  if (savedLocation) {
+    locationSelect.value = savedLocation;
+    selectedLocationId = savedLocation;
+    setControlsEnabled(true);
+  }
+
+  locationSelect.addEventListener("change", () => {
+    selectedLocationId = locationSelect.value;
+    if (selectedLocationId) {
+      localStorage.setItem("bb_location_id", selectedLocationId);
+    } else {
+      localStorage.removeItem("bb_location_id");
+    }
+    setControlsEnabled(!!selectedLocationId);
+    clearResult();
+  });
+
+  function setControlsEnabled(enabled) {
+    btnStartCamera.disabled = !enabled;
+    btnSearch.disabled = !enabled;
+  }
+
+  btnStartCamera.addEventListener("click", startCamera);
+  btnStopCamera.addEventListener("click", stopCamera);
+
+  async function startCamera() {
+    qrReaderDiv.style.display = "block";
+    btnStartCamera.style.display = "none";
+    btnStopCamera.style.display = "";
+
+    qrScanner = new Html5Qrcode("qr-reader");
+    try {
+      await qrScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        onQrScanned,
+        undefined,
+      );
+    } catch {
+      showMessage("Camera niet beschikbaar. Gebruik handmatige invoer.", "error");
+      stopCamera();
+    }
+  }
+
+  async function stopCamera() {
+    if (qrScanner?.isScanning) {
+      await qrScanner.stop();
+    }
+    qrScanner = null;
+    qrReaderDiv.style.display = "none";
+    btnStartCamera.style.display = "";
+    btnStopCamera.style.display = "none";
+  }
+
+  function onQrScanned(qrValue) {
+    if (qrValue === lastScanned) return;
+    lastScanned = qrValue;
+    clearTimeout(lastScannedTimeout);
+    lastScannedTimeout = setTimeout(() => { lastScanned = ""; }, 5000);
+    resolveQr(qrValue);
+  }
+
+  scanForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const value = qrInput.value.trim();
+    if (!value || !selectedLocationId) return;
+    resolveQr(value);
+  });
+
+  async function resolveQr(qrValue) {
+    clearResult();
+    showMessage("Laden…", "loading");
+
+    const res = await fetch("/api/scan/resolve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ qr_value: qrValue, location_id: selectedLocationId }),
+    });
+
+    if (!res.ok) {
+      showMessage("Serverfout. Probeer opnieuw.", "error");
+      return;
+    }
+
+    const data = await res.json();
+    renderResult(data);
+  }
+
+  async function confirmPickup(pickupTargetId) {
+    const btn = document.getElementById("btn-confirm");
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = "Bezig…";
+
+    const res = await fetch("/api/pickups/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pickup_target_id: pickupTargetId, location_id: selectedLocationId }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      resultDiv.innerHTML = card(
+        "✓ Afgehaald",
+        "Boom succesvol uitgegeven.",
+        "success",
+      );
+      qrInput.value = "";
+      setTimeout(clearResult, 4000);
+    } else {
+      showMessage(data.detail ?? "Bevestiging mislukt.", "error");
+    }
+  }
+
+  function renderResult(data) {
+    const { eligibility, pickup_target: target } = data;
+
+    const labels = {
+      valid: "✓ Geldig",
+      not_found: "✗ Niet gevonden",
+      cancelled: "✗ Geannuleerd",
+      unpaid: "⚠ Niet betaald",
+      wrong_location: "⚠ Verkeerde locatie",
+      already_picked_up: "⚠ Al afgehaald",
+      manual_review: "⚠ Handmatig controleren",
+    };
+
+    const types = {
+      valid: "success",
+      not_found: "error",
+      cancelled: "error",
+      unpaid: "warning",
+      wrong_location: "warning",
+      already_picked_up: "info",
+      manual_review: "warning",
+    };
+
+    const label = labels[eligibility] ?? eligibility;
+    const type = types[eligibility] ?? "info";
+
+    const order = target?.shopify_orders;
+    const customer = order?.shopify_customers;
+    const customerName = customer
+      ? `${customer.first_name ?? ""} ${customer.last_name ?? ""}`.trim()
+      : null;
+    const orderName = order?.shopify_name ?? null;
+
+    const details = target
+      ? `
+        <p style="margin: 0.25rem 0; font-size: 0.9rem;"><strong>Bestelling:</strong> ${orderName ?? "—"}</p>
+        <p style="margin: 0.25rem 0; font-size: 0.9rem;"><strong>Klant:</strong> ${customerName ?? "—"}</p>
+      `
+      : "";
+
+    const confirmBtn =
+      eligibility === "valid" && target
+        ? `<div style="margin-top: 1rem;"><button class="button" id="btn-confirm">Bevestig afhaal</button></div>`
+        : "";
+
+    resultDiv.innerHTML = card(label, details + confirmBtn, type);
+
+    if (eligibility === "valid" && target) {
+      document.getElementById("btn-confirm")?.addEventListener("click", () =>
+        confirmPickup(target.id),
+      );
+    }
+  }
+
+  function card(title, body, type) {
+    const colors = {
+      success: { bg: "#d1fae5", border: "#10b981", text: "#065f46" },
+      error:   { bg: "#fee2e2", border: "#ef4444", text: "#7f1d1d" },
+      warning: { bg: "#fef3c7", border: "#f59e0b", text: "#78350f" },
+      info:    { bg: "#e0e7ff", border: "#6366f1", text: "#3730a3" },
+      loading: { bg: "#f3f4f6", border: "#d1d5db", text: "#374151" },
+    };
+    const c = colors[type] ?? colors.info;
+    return `
+      <div style="background: ${c.bg}; border: 2px solid ${c.border}; border-radius: 0.5rem; padding: 1.25rem;">
+        <p style="font-weight: 700; color: ${c.text}; margin: 0 0 0.5rem;">${title}</p>
+        ${body}
+      </div>`;
+  }
+
+  function showMessage(msg, type = "loading") {
+    clearResult();
+    resultDiv.innerHTML = card(msg, "", type);
+  }
+
+  function clearResult() {
+    resultDiv.innerHTML = "";
+  }
+</script>

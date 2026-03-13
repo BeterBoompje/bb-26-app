@@ -1,0 +1,34 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const accessToken = Astro.cookies.get("sb-access-token");
+const refreshToken = Astro.cookies.get("sb-refresh-token");
+
+if (accessToken && refreshToken) {
+  return Astro.redirect("/app");
+}
+---
+
+<Layout title="Inloggen">
+  <div class="max-width-small" style="margin-left: auto; margin-right: auto;">
+    <div class="margin-bottom-medium">
+      <h1 class="heading-style-h3">Inloggen</h1>
+      <p class="text-size-regular">Nog geen account? <a href="/register">Registreren</a></p>
+    </div>
+    <div class="form_component">
+      <form class="form_form" action="/api/auth/signin" method="post">
+        <div class="form_field-wrapper">
+          <label class="form_label" for="email">E-mailadres</label>
+          <input class="form_input" type="email" name="email" id="email" required />
+        </div>
+        <div class="form_field-wrapper">
+          <label class="form_label" for="password">Wachtwoord</label>
+          <input class="form_input" type="password" name="password" id="password" required />
+        </div>
+        <div class="margin-top-medium">
+          <button class="button" type="submit">Inloggen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</Layout>

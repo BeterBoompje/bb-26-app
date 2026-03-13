@@ -1,0 +1,32 @@
+---
+import "../styles/client-first.css";
+import "../styles/theme.css";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title} — BB App</title>
+  </head>
+  <body>
+    <div class="page-wrapper">
+      <main class="main-wrapper">
+        <section class="padding-section-medium">
+          <div class="padding-global">
+            <div class="container-medium">
+              <slot />
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

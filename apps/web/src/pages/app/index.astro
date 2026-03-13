@@ -1,0 +1,27 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { requireAuth } from "../../lib/auth";
+
+const auth = await requireAuth(Astro.cookies);
+if (!auth) {
+  return Astro.redirect("/signin");
+}
+
+const email = auth.session.user?.email;
+---
+
+<Layout title="Home">
+  <div class="margin-bottom-medium">
+    <h1 class="heading-style-h3">BB App</h1>
+    <p class="text-size-regular">Ingelogd als {email}</p>
+  </div>
+
+  <div class="margin-bottom-large">
+    <h2 class="heading-style-h5 margin-bottom-small">Context instellen</h2>
+    <p class="text-size-small margin-bottom-medium">Kies project, seizoen en locatie om te beginnen.</p>
+    <div class="button-group">
+      <a class="button" href="/app/scan">Scanner</a>
+      <a class="button is-secondary" href="/api/auth/signout">Uitloggen</a>
+    </div>
+  </div>
+</Layout>
