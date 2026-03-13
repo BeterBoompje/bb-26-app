@@ -1,0 +1,274 @@
+---
+import ScannerLayout from "../../../../layouts/ScannerLayout.astro";
+import { requireAuth } from "../../../../lib/auth";
+
+const auth = await requireAuth(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+
+const { id } = Astro.params;
+
+const { data: target, error } = await auth.supabase
+  .from("pickup_targets")
+  .select(`
+    id, qr_value, pickup_status, payment_status,
+    shopify_orders (
+      shopify_name,
+      shopify_customers (first_name, last_name),
+      shopify_order_items (title, variant_title, quantity)
+    )
+  `)
+  .eq("id", id)
+  .single();
+
+if (error || !target) return Astro.redirect("/app/scan");
+if (target.pickup_status === "picked_up") return Astro.redirect(`/app/order/${id}`);
+
+const order    = target.shopify_orders as any;
+const customer = order?.shopify_customers;
+const items    = (order?.shopify_order_items ?? []) as any[];
+
+const customerName = customer
+  ? `${customer.first_name ?? ""} ${customer.last_name ?? ""}`.trim()
+  : "Onbekend";
+---
+
+<ScannerLayout title="Verificatie">
+  <div class="check-screen">
+
+    <!-- Header -->
+    <div class="check-header">
+      <a href={`/app/order/${id}`} class="back-btn">← Terug</a>
+      <span class="header-title">Verificatie</span>
+      <div></div>
+    </div>
+
+    <!-- Instruction -->
+    <div class="instruction">
+      <p class="instruction-text">Controleer of de boom overeenkomt met de bestelling.</p>
+    </div>
+
+    <!-- Order summary -->
+    <div class="order-summary">
+      <p class="summary-ref">{order?.shopify_name}</p>
+      <p class="summary-name">{customerName}</p>
+    </div>
+
+    <!-- Products (large, readable) -->
+    <div class="products-check">
+      {items.map((item: any) => (
+        <div class="product-check-card">
+          <span class="check-qty">{item.quantity}×</span>
+          <div class="check-details">
+            <p class="check-title">{item.title}</p>
+            {item.variant_title && (
+              <p class="check-variant">{item.variant_title}</p>
+            )}
+          </div>
+        </div>
+      ))}
+      {items.length === 0 && (
+        <p class="no-items">Geen producten gevonden</p>
+      )}
+    </div>
+
+    <!-- Action buttons -->
+    <div class="check-actions">
+      <p class="actions-label">Klopt dit?</p>
+
+      <button id="btn-approve" class="btn-approve">
+        ✓ Correct — afhandelen
+      </button>
+
+      <a href={`/app/order/${id}/not-approved?reason=wrong_tree`} class="btn-reject">
+        ✗ Verkeerd product
+      </a>
+    </div>
+
+  </div>
+</ScannerLayout>
+
+<style>
+  .check-screen {
+    min-height: 100vh;
+    background: #111827;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .check-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    padding-top: calc(1rem + env(safe-area-inset-top));
+    background: #1f2937;
+    border-bottom: 1px solid #374151;
+  }
+
+  .back-btn {
+    color: #10b981;
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .header-title {
+    font-weight: 700;
+    color: #f9fafb;
+  }
+
+  .instruction {
+    padding: 1.25rem;
+    background: #1f2937;
+    border-bottom: 1px solid #374151;
+  }
+
+  .instruction-text {
+    font-size: 0.9rem;
+    color: #9ca3af;
+    text-align: center;
+  }
+
+  .order-summary {
+    padding: 1.25rem;
+    border-bottom: 1px solid #374151;
+    text-align: center;
+  }
+
+  .summary-ref {
+    font-size: 0.85rem;
+    color: #6b7280;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  .summary-name {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #f9fafb;
+    margin-top: 0.15rem;
+  }
+
+  .products-check {
+    flex: 1;
+    padding: 1.25rem;
+    overflow-y: auto;
+  }
+
+  .product-check-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 0.85rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .check-qty {
+    font-size: 1.75rem;
+    font-weight: 900;
+    color: #f9fafb;
+    min-width: 2.5rem;
+    text-align: center;
+  }
+
+  .check-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f9fafb;
+  }
+
+  .check-variant {
+    font-size: 0.95rem;
+    color: #10b981;
+    font-weight: 600;
+    margin-top: 0.2rem;
+  }
+
+  .no-items { color: #6b7280; text-align: center; padding: 2rem 0; }
+
+  .check-actions {
+    padding: 1.25rem;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    border-top: 1px solid #374151;
+    background: #111827;
+  }
+
+  .actions-label {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.85rem;
+  }
+
+  .btn-approve {
+    display: block;
+    width: 100%;
+    background: #10b981;
+    color: #fff;
+    font-size: 1.15rem;
+    font-weight: 800;
+    padding: 1.15rem;
+    border: none;
+    border-radius: 0.85rem;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.15s;
+  }
+
+  .btn-approve:active { opacity: 0.85; }
+  .btn-approve:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-reject {
+    display: block;
+    width: 100%;
+    background: #374151;
+    color: #f9fafb;
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 1rem;
+    border-radius: 0.85rem;
+    text-align: center;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+</style>
+
+<script>
+  const btn = document.getElementById("btn-approve");
+  const id  = window.location.pathname.split("/")[3]; // /app/order/[id]/check-info
+
+  btn?.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.textContent = "Bezig…";
+
+    const locationRaw = localStorage.getItem("bb_location");
+    const locationId  = locationRaw ? JSON.parse(locationRaw).id : null;
+
+    if (!locationId) {
+      btn.textContent = "Geen locatie geselecteerd";
+      return;
+    }
+
+    const res = await fetch("/api/pickups/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pickup_target_id: id, location_id: locationId }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
+      window.location.href = `/app/order/${id}/approved`;
+    } else {
+      window.location.href = `/app/order/${id}/not-approved?reason=${encodeURIComponent(data.detail ?? "confirm_failed")}`;
+    }
+  });
+</script>

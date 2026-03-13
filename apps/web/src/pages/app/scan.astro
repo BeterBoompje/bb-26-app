@@ -1,5 +1,5 @@
 ---
-import Layout from "../../layouts/Layout.astro";
+import ScannerLayout from "../../layouts/ScannerLayout.astro";
 import { requireAuth } from "../../lib/auth";
 
 const auth = await requireAuth(Astro.cookies);
@@ -13,154 +13,613 @@ const { data: locations } = await auth.supabase
 
 ---
 
-<Layout title="Scanner">
-  <div class="margin-bottom-medium">
-    <h1 class="heading-style-h3">Scanner</h1>
-  </div>
+<ScannerLayout title="Scanner">
 
-  <!-- Locatie selector -->
-  <div class="form_component margin-bottom-medium">
-    <div class="form_field-wrapper">
-      <label class="form_label" for="location-select">Locatie</label>
-      <select class="form_input" id="location-select">
-        <option value="">— Selecteer locatie —</option>
-        {(locations ?? []).map((loc) => (
-          <option value={loc.id}>{loc.name} ({loc.city})</option>
-        ))}
-      </select>
+  <!-- Location picker overlay -->
+  <div id="location-picker" class="picker-overlay" style="display:none">
+    <div class="picker-sheet">
+      <p class="picker-title">Selecteer jouw locatie</p>
+      {(locations ?? []).map((loc) => (
+        <button class="picker-option" data-id={loc.id} data-name={loc.name}>
+          <span class="picker-name">{loc.name}</span>
+          <span class="picker-city">{loc.city}</span>
+        </button>
+      ))}
     </div>
   </div>
 
-  <!-- Camera preview -->
-  <div id="qr-reader" style="display:none; border-radius: 0.5rem; overflow: hidden; margin-bottom: 0.75rem;"></div>
-
-  <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
-    <button class="button is-secondary" id="btn-start-camera" disabled>Camera starten</button>
-    <button class="button is-secondary" id="btn-stop-camera" style="display:none">Stop camera</button>
+  <!-- Manual input overlay -->
+  <div id="manual-overlay" class="picker-overlay" style="display:none">
+    <div class="picker-sheet">
+      <p class="picker-title">Handmatig invoeren</p>
+      <form id="manual-form">
+        <input
+          id="manual-input"
+          class="manual-input"
+          type="text"
+          inputmode="numeric"
+          placeholder="Bestelnummer of QR-code"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+        />
+        <div style="display:flex; gap:0.75rem; margin-top:1rem;">
+          <button type="submit" class="btn-primary" style="flex:1">Zoeken</button>
+          <button type="button" id="btn-manual-cancel" class="btn-ghost" style="flex:1">Annuleer</button>
+        </div>
+      </form>
+    </div>
   </div>
 
-  <!-- Handmatig invoeren -->
-  <div class="form_component margin-bottom-medium">
-    <form id="scan-form">
-      <div class="form_field-wrapper">
-        <label class="form_label" for="qr-input">Handmatig invoeren</label>
-        <input class="form_input" type="text" id="qr-input" placeholder="QR-code of bestelnummer" autocomplete="off" />
+  <!-- Main scanner screen -->
+  <div class="scanner-screen">
+
+    <!-- Top bar -->
+    <div class="top-bar">
+      <button id="btn-location" class="location-badge">
+        <span class="location-icon">📍</span>
+        <span id="location-name">Kies locatie</span>
+        <span class="location-change">wijzig</span>
+      </button>
+    </div>
+
+    <!-- Camera viewport -->
+    <div class="viewport-wrap" id="viewport-wrap">
+      <div id="qr-reader"></div>
+
+      <!-- Corner overlay (turns green on detect) -->
+      <div class="corner-overlay" id="corner-overlay">
+        <div class="scan-frame" id="scan-frame">
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="corner bl"></div>
+          <div class="corner br"></div>
+        </div>
       </div>
-      <div class="margin-top-small">
-        <button class="button" type="submit" id="btn-search" disabled>Zoeken</button>
+
+      <!-- Camera start prompt (shown before camera starts) -->
+      <div class="camera-prompt" id="camera-prompt">
+        <button id="btn-start-camera" class="btn-start-camera" disabled>
+          <span style="font-size:2rem">📷</span>
+          <span>Camera starten</span>
+        </button>
       </div>
-    </form>
+    </div>
+
+    <!-- Bottom toolbar -->
+    <div class="toolbar">
+      <button id="btn-manual" class="toolbar-btn">
+        <span style="font-size:1.25rem">⌨️</span>
+        <span>Handmatig</span>
+      </button>
+      <button id="btn-stop-camera" class="toolbar-btn" style="display:none">
+        <span style="font-size:1.25rem">⏹</span>
+        <span>Stop</span>
+      </button>
+    </div>
+
+    <!-- Result panel (slides up from bottom) -->
+    <div id="result-panel" class="result-panel">
+      <div class="panel-handle"></div>
+      <div id="result-content"></div>
+    </div>
+
   </div>
 
-  <!-- Resultaat -->
-  <div id="scan-result" class="margin-top-medium"></div>
+</ScannerLayout>
 
-  <div class="margin-top-large">
-    <a class="button is-text" href="/app">← Terug</a>
-  </div>
-</Layout>
+<style>
+  /* ── Layout ──────────────────────────────────────────── */
+  .scanner-screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: #111827;
+  }
+
+  /* ── Top bar ─────────────────────────────────────────── */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    padding-top: calc(0.75rem + env(safe-area-inset-top));
+    background: rgba(17, 24, 39, 0.9);
+    backdrop-filter: blur(8px);
+    z-index: 10;
+    flex-shrink: 0;
+  }
+
+  .location-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 2rem;
+    padding: 0.4rem 0.85rem;
+    color: #f9fafb;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .location-change {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    margin-left: 0.25rem;
+  }
+
+  /* ── Camera viewport ─────────────────────────────────── */
+  .viewport-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    min-height: 0;
+  }
+
+  #qr-reader {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* Force html5-qrcode video to fill container */
+  #qr-reader video {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  /* Hide html5-qrcode default UI chrome */
+  #qr-reader img,
+  #qr-reader button,
+  #qr-reader select,
+  #qr-reader span[style],
+  #qr-reader > div > div:last-child {
+    display: none !important;
+  }
+
+  /* ── Corner overlay ──────────────────────────────────── */
+  .corner-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .scan-frame {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    transition: transform 0.15s ease;
+  }
+
+  .scan-frame.detected {
+    transform: scale(1.04);
+  }
+
+  .corner {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    transition: border-color 0.2s ease;
+  }
+
+  .corner.tl { top: 0; left: 0; border-top: 3px solid #fff; border-left: 3px solid #fff; border-radius: 3px 0 0 0; }
+  .corner.tr { top: 0; right: 0; border-top: 3px solid #fff; border-right: 3px solid #fff; border-radius: 0 3px 0 0; }
+  .corner.bl { bottom: 0; left: 0; border-bottom: 3px solid #fff; border-left: 3px solid #fff; border-radius: 0 0 0 3px; }
+  .corner.br { bottom: 0; right: 0; border-bottom: 3px solid #fff; border-right: 3px solid #fff; border-radius: 0 0 3px 0; }
+
+  .scan-frame.detected .corner { border-color: #10b981; }
+
+  /* ── Camera start prompt ─────────────────────────────── */
+  .camera-prompt {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.6);
+  }
+
+  .camera-prompt.hidden { display: none; }
+
+  .btn-start-camera {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 1rem;
+    color: #fff;
+    padding: 1.5rem 2.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s;
+  }
+
+  .btn-start-camera:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-start-camera:not(:disabled):active {
+    background: rgba(255,255,255,0.25);
+  }
+
+  /* ── Toolbar ─────────────────────────────────────────── */
+  .toolbar {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    padding: 0.75rem 1rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    background: rgba(17, 24, 39, 0.95);
+    flex-shrink: 0;
+  }
+
+  .toolbar-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    background: none;
+    border: none;
+    color: #9ca3af;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.15s;
+  }
+
+  .toolbar-btn:active { color: #f9fafb; }
+
+  /* ── Result panel ────────────────────────────────────── */
+  .result-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #1f2937;
+    border-radius: 1.25rem 1.25rem 0 0;
+    padding: 0 1.25rem 2rem;
+    padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+    max-height: 75vh;
+    overflow-y: auto;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 20;
+  }
+
+  .result-panel.open {
+    transform: translateY(0);
+  }
+
+  .panel-handle {
+    width: 40px;
+    height: 4px;
+    background: #4b5563;
+    border-radius: 2px;
+    margin: 0.75rem auto 1.25rem;
+  }
+
+  /* ── Location picker / Manual overlay ───────────────── */
+  .picker-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 50;
+    display: flex;
+    align-items: flex-end;
+    backdrop-filter: blur(4px);
+  }
+
+  .picker-sheet {
+    background: #1f2937;
+    border-radius: 1.25rem 1.25rem 0 0;
+    padding: 1.5rem 1.25rem;
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .picker-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+    margin-bottom: 1rem;
+  }
+
+  .picker-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.5rem;
+    color: #f9fafb;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s;
+  }
+
+  .picker-option:active { background: rgba(255,255,255,0.12); }
+
+  .picker-name { font-weight: 600; font-size: 1rem; }
+  .picker-city { font-size: 0.85rem; color: #9ca3af; }
+
+  .manual-input {
+    width: 100%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 0.75rem;
+    color: #f9fafb;
+    font-size: 1.25rem;
+    letter-spacing: 0.1em;
+    padding: 1rem 1.25rem;
+    outline: none;
+  }
+
+  .manual-input::placeholder { color: #6b7280; }
+  .manual-input:focus { border-color: #10b981; }
+
+  /* ── Buttons ─────────────────────────────────────────── */
+  .btn-primary {
+    background: #10b981;
+    color: #fff;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 0.9rem 1.5rem;
+    border: none;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-ghost {
+    background: rgba(255,255,255,0.08);
+    color: #9ca3af;
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 0.9rem 1.5rem;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 0.75rem;
+    cursor: pointer;
+  }
+
+  /* ── Result card (inside panel) ──────────────────────── */
+  .result-card {
+    border-radius: 1rem;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .result-card.valid    { background: #064e3b; border: 2px solid #10b981; }
+  .result-card.error    { background: #7f1d1d; border: 2px solid #ef4444; }
+  .result-card.warning  { background: #78350f; border: 2px solid #f59e0b; }
+  .result-card.info     { background: #1e1b4b; border: 2px solid #6366f1; }
+  .result-card.loading  { background: #1f2937; border: 2px solid #4b5563; }
+
+  .result-status {
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+  }
+
+  .result-card.valid   .result-status { color: #6ee7b7; }
+  .result-card.error   .result-status { color: #fca5a5; }
+  .result-card.warning .result-status { color: #fde68a; }
+  .result-card.info    .result-status { color: #c7d2fe; }
+  .result-card.loading .result-status { color: #9ca3af; }
+
+  .result-order { font-size: 1.5rem; font-weight: 800; color: #f9fafb; margin: 0.25rem 0; }
+  .result-customer { font-size: 1rem; color: #d1d5db; }
+
+  .btn-view-order {
+    display: block;
+    width: 100%;
+    background: #10b981;
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.05rem;
+    padding: 1rem;
+    border: none;
+    border-radius: 0.75rem;
+    margin-top: 1.25rem;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-close-panel {
+    display: block;
+    width: 100%;
+    background: transparent;
+    color: #6b7280;
+    font-size: 0.9rem;
+    padding: 0.75rem;
+    border: none;
+    cursor: pointer;
+    margin-top: 0.5rem;
+  }
+</style>
 
 <script>
   import { Html5Qrcode } from "html5-qrcode";
 
-  /** @type {Html5Qrcode | null} */
+  // ── State ──────────────────────────────────────────────
   let qrScanner = null;
-  let selectedLocationId = "";
+  let selectedLocation = null; // { id, name }
   let lastScanned = "";
-  let lastScannedTimeout = 0;
+  let lastScannedTimeout = null;
+  let cameraRunning = false;
 
-  const locationSelect = /** @type {HTMLSelectElement} */ (document.getElementById("location-select"));
-  const btnStartCamera = /** @type {HTMLButtonElement} */ (document.getElementById("btn-start-camera"));
-  const btnStopCamera = /** @type {HTMLButtonElement} */ (document.getElementById("btn-stop-camera"));
-  const btnSearch = /** @type {HTMLButtonElement} */ (document.getElementById("btn-search"));
-  const qrInput = /** @type {HTMLInputElement} */ (document.getElementById("qr-input"));
-  const scanForm = /** @type {HTMLFormElement} */ (document.getElementById("scan-form"));
-  const resultDiv = /** @type {HTMLDivElement} */ (document.getElementById("scan-result"));
-  const qrReaderDiv = /** @type {HTMLDivElement} */ (document.getElementById("qr-reader"));
+  // ── Elements ───────────────────────────────────────────
+  const btnLocation     = document.getElementById("btn-location");
+  const locationName    = document.getElementById("location-name");
+  const locationPicker  = document.getElementById("location-picker");
+  const pickerOptions   = document.querySelectorAll(".picker-option");
 
-  // Herstel locatie uit localStorage
-  const savedLocation = localStorage.getItem("bb_location_id");
-  if (savedLocation) {
-    locationSelect.value = savedLocation;
-    selectedLocationId = savedLocation;
-    setControlsEnabled(true);
+  const cameraPrompt    = document.getElementById("camera-prompt");
+  const btnStartCamera  = document.getElementById("btn-start-camera");
+  const btnStopCamera   = document.getElementById("btn-stop-camera");
+
+  const btnManual       = document.getElementById("btn-manual");
+  const manualOverlay   = document.getElementById("manual-overlay");
+  const manualForm      = document.getElementById("manual-form");
+  const manualInput     = document.getElementById("manual-input");
+  const btnManualCancel = document.getElementById("btn-manual-cancel");
+
+  const resultPanel     = document.getElementById("result-panel");
+  const resultContent   = document.getElementById("result-content");
+  const scanFrame       = document.getElementById("scan-frame");
+
+  // ── Init: herstel locatie uit localStorage ─────────────
+  function initLocation() {
+    try {
+      const saved = localStorage.getItem("bb_location");
+      if (saved) {
+        selectedLocation = JSON.parse(saved);
+        locationName.textContent = selectedLocation.name;
+        btnStartCamera.disabled = false;
+      }
+    } catch { /* ignore */ }
   }
 
-  locationSelect.addEventListener("change", () => {
-    selectedLocationId = locationSelect.value;
-    if (selectedLocationId) {
-      localStorage.setItem("bb_location_id", selectedLocationId);
-    } else {
-      localStorage.removeItem("bb_location_id");
-    }
-    setControlsEnabled(!!selectedLocationId);
-    clearResult();
+  function saveLocation(loc) {
+    selectedLocation = loc;
+    locationName.textContent = loc.name;
+    localStorage.setItem("bb_location", JSON.stringify(loc));
+    btnStartCamera.disabled = false;
+  }
+
+  // ── Location picker ────────────────────────────────────
+  btnLocation.addEventListener("click", () => {
+    locationPicker.style.display = "flex";
   });
 
-  function setControlsEnabled(enabled) {
-    btnStartCamera.disabled = !enabled;
-    btnSearch.disabled = !enabled;
-  }
+  pickerOptions.forEach(btn => {
+    btn.addEventListener("click", () => {
+      saveLocation({ id: btn.dataset.id, name: btn.dataset.name });
+      locationPicker.style.display = "none";
+    });
+  });
 
+  // close picker on backdrop click
+  locationPicker.addEventListener("click", (e) => {
+    if (e.target === locationPicker) locationPicker.style.display = "none";
+  });
+
+  // ── Manual input ───────────────────────────────────────
+  btnManual.addEventListener("click", () => {
+    if (!selectedLocation) { locationPicker.style.display = "flex"; return; }
+    manualOverlay.style.display = "flex";
+    setTimeout(() => manualInput.focus(), 100);
+  });
+
+  btnManualCancel.addEventListener("click", () => {
+    manualOverlay.style.display = "none";
+    manualInput.value = "";
+  });
+
+  manualOverlay.addEventListener("click", (e) => {
+    if (e.target === manualOverlay) {
+      manualOverlay.style.display = "none";
+      manualInput.value = "";
+    }
+  });
+
+  manualForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const value = manualInput.value.trim();
+    if (!value) return;
+    manualOverlay.style.display = "none";
+    manualInput.value = "";
+    resolveQr(value);
+  });
+
+  // ── Camera ─────────────────────────────────────────────
   btnStartCamera.addEventListener("click", startCamera);
   btnStopCamera.addEventListener("click", stopCamera);
 
   async function startCamera() {
-    qrReaderDiv.style.display = "block";
-    btnStartCamera.style.display = "none";
+    if (!selectedLocation) { locationPicker.style.display = "flex"; return; }
+    cameraPrompt.classList.add("hidden");
     btnStopCamera.style.display = "";
+    cameraRunning = true;
 
     qrScanner = new Html5Qrcode("qr-reader");
     try {
       await qrScanner.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        onQrScanned,
-        undefined,
+        { fps: 10, qrbox: 220, aspectRatio: 1.0 },
+        onQrDetected,
+        undefined
       );
     } catch {
-      showMessage("Camera niet beschikbaar. Gebruik handmatige invoer.", "error");
-      stopCamera();
+      cameraPrompt.classList.remove("hidden");
+      btnStopCamera.style.display = "none";
+      cameraRunning = false;
+      showPanel(buildCard("⚠ Camera niet beschikbaar", null, null, "warning"));
     }
   }
 
   async function stopCamera() {
-    if (qrScanner?.isScanning) {
-      await qrScanner.stop();
-    }
+    if (qrScanner?.isScanning) await qrScanner.stop();
     qrScanner = null;
-    qrReaderDiv.style.display = "none";
-    btnStartCamera.style.display = "";
+    cameraRunning = false;
+    cameraPrompt.classList.remove("hidden");
     btnStopCamera.style.display = "none";
   }
 
-  function onQrScanned(qrValue) {
+  function onQrDetected(qrValue) {
     if (qrValue === lastScanned) return;
     lastScanned = qrValue;
     clearTimeout(lastScannedTimeout);
     lastScannedTimeout = setTimeout(() => { lastScanned = ""; }, 5000);
+
+    // Visual: corners flash green
+    scanFrame.classList.add("detected");
+    setTimeout(() => scanFrame.classList.remove("detected"), 600);
+
+    // Vibrate
+    if (navigator.vibrate) navigator.vibrate(60);
+
     resolveQr(qrValue);
   }
 
-  scanForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const value = qrInput.value.trim();
-    if (!value || !selectedLocationId) return;
-    resolveQr(value);
-  });
-
+  // ── Resolve QR ─────────────────────────────────────────
   async function resolveQr(qrValue) {
-    clearResult();
-    showMessage("Laden…", "loading");
+    closePanel();
+    showPanel(buildCard("Laden…", null, null, "loading"));
 
     const res = await fetch("/api/scan/resolve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ qr_value: qrValue, location_id: selectedLocationId }),
+      body: JSON.stringify({ qr_value: qrValue, location_id: selectedLocation.id }),
     });
 
     if (!res.ok) {
-      showMessage("Serverfout. Probeer opnieuw.", "error");
+      showPanel(buildCard("⚠ Serverfout", "Probeer opnieuw.", null, "error"));
       return;
     }
 
@@ -168,109 +627,59 @@ const { data: locations } = await auth.supabase
     renderResult(data);
   }
 
-  async function confirmPickup(pickupTargetId) {
-    const btn = document.getElementById("btn-confirm");
-    if (!btn) return;
-    btn.disabled = true;
-    btn.textContent = "Bezig…";
-
-    const res = await fetch("/api/pickups/confirm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pickup_target_id: pickupTargetId, location_id: selectedLocationId }),
-    });
-
-    const data = await res.json();
-
-    if (data.success) {
-      resultDiv.innerHTML = card(
-        "✓ Afgehaald",
-        "Boom succesvol uitgegeven.",
-        "success",
-      );
-      qrInput.value = "";
-      setTimeout(clearResult, 4000);
-    } else {
-      showMessage(data.detail ?? "Bevestiging mislukt.", "error");
-    }
-  }
-
   function renderResult(data) {
     const { eligibility, pickup_target: target } = data;
 
-    const labels = {
-      valid: "✓ Geldig",
-      not_found: "✗ Niet gevonden",
-      cancelled: "✗ Geannuleerd",
-      unpaid: "⚠ Niet betaald",
-      wrong_location: "⚠ Verkeerde locatie",
-      already_picked_up: "⚠ Al afgehaald",
-      manual_review: "⚠ Handmatig controleren",
+    const statusMap = {
+      valid:            { icon: "✓",  label: "Geldig",              type: "valid" },
+      not_found:        { icon: "✗",  label: "Niet gevonden",       type: "error" },
+      cancelled:        { icon: "✗",  label: "Geannuleerd",         type: "error" },
+      unpaid:           { icon: "⚠",  label: "Niet betaald",        type: "warning" },
+      wrong_location:   { icon: "⚠",  label: "Verkeerde locatie",   type: "warning" },
+      already_picked_up:{ icon: "⚠",  label: "Al afgehaald",        type: "info" },
+      manual_review:    { icon: "⚠",  label: "Handmatig controleren", type: "warning" },
     };
 
-    const types = {
-      valid: "success",
-      not_found: "error",
-      cancelled: "error",
-      unpaid: "warning",
-      wrong_location: "warning",
-      already_picked_up: "info",
-      manual_review: "warning",
-    };
+    const { icon, label, type } = statusMap[eligibility] ?? { icon: "?", label: eligibility, type: "info" };
 
-    const label = labels[eligibility] ?? eligibility;
-    const type = types[eligibility] ?? "info";
-
-    const order = target?.shopify_orders;
+    const order    = target?.shopify_orders;
     const customer = order?.shopify_customers;
-    const customerName = customer
-      ? `${customer.first_name ?? ""} ${customer.last_name ?? ""}`.trim()
-      : null;
-    const orderName = order?.shopify_name ?? null;
+    const name     = customer ? `${customer.first_name ?? ""} ${customer.last_name ?? ""}`.trim() : null;
+    const orderRef = order?.shopify_name ?? null;
 
-    const details = target
-      ? `
-        <p style="margin: 0.25rem 0; font-size: 0.9rem;"><strong>Bestelling:</strong> ${orderName ?? "—"}</p>
-        <p style="margin: 0.25rem 0; font-size: 0.9rem;"><strong>Klant:</strong> ${customerName ?? "—"}</p>
-      `
+    // Vibrate on valid
+    if (eligibility === "valid" && navigator.vibrate) navigator.vibrate([60, 40, 60]);
+
+    const viewBtn = eligibility === "valid" && target
+      ? `<a class="btn-view-order" href="/app/order/${target.id}">Bekijk bestelling →</a>`
       : "";
 
-    const confirmBtn =
-      eligibility === "valid" && target
-        ? `<div style="margin-top: 1rem;"><button class="button" id="btn-confirm">Bevestig afhaal</button></div>`
-        : "";
+    const closeBtn = `<button class="btn-close-panel" id="btn-close-panel">Sluiten</button>`;
 
-    resultDiv.innerHTML = card(label, details + confirmBtn, type);
+    showPanel(buildCard(`${icon} ${label}`, orderRef, name, type) + viewBtn + closeBtn);
 
-    if (eligibility === "valid" && target) {
-      document.getElementById("btn-confirm")?.addEventListener("click", () =>
-        confirmPickup(target.id),
-      );
-    }
+    document.getElementById("btn-close-panel")?.addEventListener("click", closePanel);
   }
 
-  function card(title, body, type) {
-    const colors = {
-      success: { bg: "#d1fae5", border: "#10b981", text: "#065f46" },
-      error:   { bg: "#fee2e2", border: "#ef4444", text: "#7f1d1d" },
-      warning: { bg: "#fef3c7", border: "#f59e0b", text: "#78350f" },
-      info:    { bg: "#e0e7ff", border: "#6366f1", text: "#3730a3" },
-      loading: { bg: "#f3f4f6", border: "#d1d5db", text: "#374151" },
-    };
-    const c = colors[type] ?? colors.info;
-    return `
-      <div style="background: ${c.bg}; border: 2px solid ${c.border}; border-radius: 0.5rem; padding: 1.25rem;">
-        <p style="font-weight: 700; color: ${c.text}; margin: 0 0 0.5rem;">${title}</p>
-        ${body}
-      </div>`;
+  function buildCard(status, orderRef, customer, type) {
+    const orderLine  = orderRef  ? `<p class="result-order">${orderRef}</p>` : "";
+    const custLine   = customer  ? `<p class="result-customer">${customer}</p>` : "";
+    return `<div class="result-card ${type}">
+      <p class="result-status">${status}</p>
+      ${orderLine}${custLine}
+    </div>`;
   }
 
-  function showMessage(msg, type = "loading") {
-    clearResult();
-    resultDiv.innerHTML = card(msg, "", type);
+  function showPanel(html) {
+    resultContent.innerHTML = html;
+    resultPanel.classList.add("open");
   }
 
-  function clearResult() {
-    resultDiv.innerHTML = "";
+  function closePanel() {
+    resultPanel.classList.remove("open");
+    setTimeout(() => { resultContent.innerHTML = ""; }, 350);
   }
+
+  // ── Boot ───────────────────────────────────────────────
+  initLocation();
 </script>

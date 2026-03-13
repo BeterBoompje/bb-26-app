@@ -11,5 +11,8 @@ export default defineConfig({
     server: {
       allowedHosts: true,
     },
+    optimizeDeps: {
+      include: ["html5-qrcode"],
+    },
   },
 });
