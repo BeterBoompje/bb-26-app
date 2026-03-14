@@ -149,15 +149,19 @@ function doelSlug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
 
-// Voorberekend per DOEL: tabId, panelId, rows, totals
-const doelMeta = DOELEN.map((doel) => ({
-  doel,
-  cnt:     (byDoel[doel] ?? []).length,
-  tabId:   "tab-"   + doelSlug(doel),
-  panelId: "panel-" + doelSlug(doel),
-  rows:    byDoel[doel] ?? [],
-  totals:  totalsFor(byDoel[doel] ?? []),
-}));
+// Voorberekend per DOEL: tabId, panelId, rows, totals, label
+const doelMeta = DOELEN.map((doel) => {
+  const rows = byDoel[doel] ?? [];
+  return {
+    doel,
+    label:   doel.split("|")[0].trim(),
+    cnt:     rows.length,
+    tabId:   "tab-"   + doelSlug(doel),
+    panelId: "panel-" + doelSlug(doel),
+    rows,
+    totals:  totalsFor(rows),
+  };
+});
 
 // Opzoektabel voor de edit-modal — doorgegeven via define:vars
 const rowDataMap: Record<string, Record<string, unknown>> = {};
@@ -201,11 +205,11 @@ for (const l of allLines) {
   <!-- Tabs -->
   <div class="tabs">
     <button class="tab active" data-tab="totaal" id="tab-totaal">
-      Totaal ({allLines.length})
+      {`Totaal (${allLines.length})`}
     </button>
     {doelMeta.map((m) => (
       <button class="tab" id={m.tabId}>
-        {m.doel.split("|")[0].trim()} ({m.cnt})
+        {`${m.label} (${m.cnt})`}
       </button>
     ))}
   </div>
