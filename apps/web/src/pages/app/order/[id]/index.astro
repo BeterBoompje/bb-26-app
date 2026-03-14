@@ -1,0 +1,381 @@
+---
+import ScannerLayout from "../../../../layouts/ScannerLayout.astro";
+import { requireAuth } from "../../../../lib/auth";
+
+const auth = await requireAuth(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+
+const { id } = Astro.params;
+
+const { data: target, error } = await auth.supabase
+  .from("pickup_targets")
+  .select(`
+    id, qr_value, pickup_status, payment_status, intended_location_id,
+    locations!intended_location_id (name, city),
+    shopify_orders (
+      id, shopify_name, shopify_order_id,
+      shopify_customers (first_name, last_name, email, phone),
+      shopify_order_items (id, sku, title, variant_title, quantity, product_type)
+    )
+  `)
+  .eq("id", id)
+  .single();
+
+if (error || !target) return Astro.redirect("/app/scan");
+
+const order    = target.shopify_orders as any;
+const customer = order?.shopify_customers;
+const items    = (order?.shopify_order_items ?? []) as any[];
+const location = target.locations as any;
+
+const customerName = customer
+  ? `${customer.first_name ?? ""} ${customer.last_name ?? ""}`.trim()
+  : "Onbekend";
+
+// Group items by rootball type (parsed from variant_title)
+function parseVariant(variantTitle: string | null) {
+  if (!variantTitle) return { size: null, rootball: null, color: null };
+  const parts = variantTitle.split("/").map((s: string) => s.trim());
+  return {
+    size:    parts[0] ?? null,
+    rootball: parts[1] ?? null,
+    color:   parts[2] ?? null,
+  };
+}
+
+const withRootball    = items.filter(i => parseVariant(i.variant_title).rootball?.toLowerCase().includes("kluit") && parseVariant(i.variant_title).rootball?.toLowerCase().includes("met"));
+const withoutRootball = items.filter(i => parseVariant(i.variant_title).rootball?.toLowerCase().includes("zonder"));
+const other           = items.filter(i => !withRootball.includes(i) && !withoutRootball.includes(i));
+
+const statusAlreadyPickedUp = target.pickup_status === "picked_up";
+
+function colorHex(name: string | null): string {
+  const map: Record<string, string> = {
+    "blauw": "#2563eb", "rood": "#dc2626", "groen": "#16a34a",
+    "geel": "#ca8a04", "oranje": "#ea580c", "paars": "#9333ea",
+    "roze": "#db2777", "wit": "#9ca3af", "zwart": "#1f2937",
+    "blue": "#2563eb", "red": "#dc2626", "green": "#16a34a",
+  };
+  return map[name?.toLowerCase() ?? ""] ?? "#6b7280";
+}
+---
+
+<ScannerLayout title={`Bestelling ${order?.shopify_name ?? ""}`}>
+  <div class="order-screen">
+
+    <!-- Header -->
+    <div class="order-header">
+      <a href="/app/scan" class="back-btn">← Terug</a>
+      <span class="order-ref">{order?.shopify_name ?? "—"}</span>
+      <div></div>
+    </div>
+
+    <!-- Status banner (if already picked up) -->
+    {statusAlreadyPickedUp && (
+      <div class="status-banner already-picked-up">
+        ⚠ Deze bestelling is al afgehaald
+      </div>
+    )}
+
+    <!-- Customer block -->
+    <div class="info-section">
+      <div class="customer-block">
+        <span class="customer-icon">👤</span>
+        <div>
+          <p class="customer-name">{customerName}</p>
+          {customer?.email && <p class="customer-detail">{customer.email}</p>}
+          {customer?.phone && <p class="customer-detail">{customer.phone}</p>}
+        </div>
+      </div>
+    </div>
+
+    <!-- Location -->
+    {location && (
+      <div class="meta-row">
+        <span class="meta-label">📍 Locatie</span>
+        <span class="meta-value">{location.name}, {location.city}</span>
+      </div>
+    )}
+
+    <!-- Payment status -->
+    <div class="meta-row">
+      <span class="meta-label">💳 Betaling</span>
+      <span class={`badge ${target.payment_status === "paid" ? "badge-green" : "badge-red"}`}>
+        {target.payment_status === "paid" ? "Betaald" : target.payment_status}
+      </span>
+    </div>
+
+    <!-- Products -->
+    <div class="products-section">
+      <p class="section-title">Producten</p>
+
+      {withRootball.length > 0 && (
+        <div class="product-group">
+          <p class="group-label">MET KLUIT</p>
+          {withRootball.map((item: any) => {
+            const v = parseVariant(item.variant_title);
+            return (
+              <div class="product-row">
+                <span class="product-qty">{item.quantity}×</span>
+                <div class="product-info">
+                  <span class="product-size">{v.size ?? item.title}</span>
+                  {v.color && <span class="product-color" style={`background: ${colorHex(v.color)}`}>{v.color}</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {withoutRootball.length > 0 && (
+        <div class="product-group">
+          <p class="group-label">ZONDER KLUIT</p>
+          {withoutRootball.map((item: any) => {
+            const v = parseVariant(item.variant_title);
+            return (
+              <div class="product-row">
+                <span class="product-qty">{item.quantity}×</span>
+                <div class="product-info">
+                  <span class="product-size">{v.size ?? item.title}</span>
+                  {v.color && <span class="product-color" style={`background: ${colorHex(v.color)}`}>{v.color}</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {other.length > 0 && (
+        <div class="product-group">
+          {other.map((item: any) => (
+            <div class="product-row">
+              <span class="product-qty">{item.quantity}×</span>
+              <div class="product-info">
+                <span class="product-size">{item.title}</span>
+                {item.variant_title && <span class="product-variant">{item.variant_title}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {items.length === 0 && (
+        <p class="no-items">Geen producten gevonden</p>
+      )}
+    </div>
+
+    <!-- CTA -->
+    <div class="cta-area">
+      {!statusAlreadyPickedUp
+        ? <a href={`/app/order/${id}/check-info`} class="btn-primary-full">Afhandelen →</a>
+        : <a href="/app/scan" class="btn-secondary-full">← Terug naar scanner</a>
+      }
+    </div>
+
+  </div>
+</ScannerLayout>
+
+{/* Helper for color hex mapping */}
+<script>
+  // Nothing needed client-side on this page
+</script>
+
+<style>
+  .order-screen {
+    min-height: 100vh;
+    background: #111827;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .order-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    padding-top: calc(1rem + env(safe-area-inset-top));
+    background: #1f2937;
+    border-bottom: 1px solid #374151;
+    flex-shrink: 0;
+  }
+
+  .back-btn {
+    color: #10b981;
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 0.25rem 0;
+  }
+
+  .order-ref {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f9fafb;
+  }
+
+  .status-banner {
+    padding: 0.85rem 1.25rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .already-picked-up {
+    background: #1e1b4b;
+    color: #c7d2fe;
+    border-bottom: 2px solid #6366f1;
+  }
+
+  .info-section {
+    padding: 1.25rem;
+    border-bottom: 1px solid #374151;
+  }
+
+  .customer-block {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+  }
+
+  .customer-icon { font-size: 1.75rem; line-height: 1; }
+
+  .customer-name {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #f9fafb;
+    line-height: 1.2;
+  }
+
+  .customer-detail {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    margin-top: 0.15rem;
+  }
+
+  .meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid #374151;
+  }
+
+  .meta-label { font-size: 0.9rem; color: #9ca3af; }
+  .meta-value { font-size: 0.9rem; color: #f9fafb; font-weight: 500; }
+
+  .badge {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.25rem 0.6rem;
+    border-radius: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .badge-green { background: #064e3b; color: #6ee7b7; }
+  .badge-red   { background: #7f1d1d; color: #fca5a5; }
+
+  .products-section {
+    padding: 1.25rem;
+    flex: 1;
+  }
+
+  .section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+    margin-bottom: 0.75rem;
+  }
+
+  .product-group {
+    background: #1f2937;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .group-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+  }
+
+  .product-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.4rem 0;
+  }
+
+  .product-qty {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #f9fafb;
+    min-width: 2rem;
+  }
+
+  .product-info { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+  .product-size {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #e5e7eb;
+  }
+
+  .product-variant {
+    font-size: 0.8rem;
+    color: #9ca3af;
+  }
+
+  .product-color {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 1rem;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+
+  .no-items { color: #6b7280; font-size: 0.9rem; }
+
+  .cta-area {
+    padding: 1.25rem;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    background: #111827;
+    border-top: 1px solid #374151;
+    flex-shrink: 0;
+  }
+
+  .btn-primary-full {
+    display: block;
+    width: 100%;
+    background: #10b981;
+    color: #fff;
+    font-weight: 800;
+    font-size: 1.1rem;
+    padding: 1.1rem;
+    border-radius: 0.85rem;
+    text-align: center;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-secondary-full {
+    display: block;
+    width: 100%;
+    background: #374151;
+    color: #f9fafb;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 1rem;
+    border-radius: 0.85rem;
+    text-align: center;
+    text-decoration: none;
+  }
+</style>
+

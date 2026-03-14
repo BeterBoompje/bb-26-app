@@ -1,0 +1,103 @@
+---
+import ScannerLayout from "../../../../layouts/ScannerLayout.astro";
+import { requireAuth } from "../../../../lib/auth";
+
+const auth = await requireAuth(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+
+const { id } = Astro.params;
+const reason = Astro.url.searchParams.get("reason") ?? "unknown";
+
+const reasonMap: Record<string, { icon: string; title: string; body: string; color: string; bg: string }> = {
+  wrong_tree:        { icon: "✗", title: "Verkeerd product", body: "De boom komt niet overeen met de bestelling. Controleer het label en de maat.", color: "#fca5a5", bg: "#7f1d1d" },
+  wrong_location:    { icon: "📍", title: "Verkeerde locatie", body: "Deze bestelling is bestemd voor een andere afhaallocatie.", color: "#fde68a", bg: "#78350f" },
+  already_picked_up: { icon: "⚠", title: "Al afgehaald", body: "Deze bestelling is al eerder afgehaald.", color: "#c7d2fe", bg: "#1e1b4b" },
+  confirm_failed:    { icon: "✗", title: "Bevestiging mislukt", body: "Er ging iets mis. Probeer opnieuw of neem contact op met de beheerder.", color: "#fca5a5", bg: "#7f1d1d" },
+  unknown:           { icon: "?", title: "Onbekende fout", body: "Er is een onbekende fout opgetreden.", color: "#fca5a5", bg: "#7f1d1d" },
+};
+
+const info = reasonMap[reason] ?? reasonMap["unknown"];
+---
+
+<ScannerLayout title="Niet afgehandeld">
+  <div class="error-screen" style={`background: ${info.bg}`}>
+    <div class="error-icon" style={`color: ${info.color}`}>{info.icon}</div>
+    <p class="error-title" style={`color: ${info.color}`}>{info.title}</p>
+    <p class="error-body">{info.body}</p>
+
+    <div class="error-actions">
+      <a href={`/app/order/${id}`} class="btn-back">← Terug naar bestelling</a>
+      <a href="/app/scan" class="btn-scan">Nieuwe scan</a>
+    </div>
+  </div>
+</ScannerLayout>
+
+<style>
+  .error-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  .error-icon {
+    font-size: 4rem;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 1rem;
+  }
+
+  .error-title {
+    font-size: 1.75rem;
+    font-weight: 900;
+    margin-bottom: 0.75rem;
+  }
+
+  .error-body {
+    font-size: 1rem;
+    color: #d1d5db;
+    max-width: 280px;
+    line-height: 1.5;
+    margin-bottom: 2.5rem;
+  }
+
+  .error-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .btn-back {
+    display: block;
+    background: rgba(255,255,255,0.15);
+    color: #f9fafb;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 1rem;
+    border-radius: 0.85rem;
+    text-decoration: none;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  .btn-scan {
+    display: block;
+    background: rgba(255,255,255,0.08);
+    color: #d1d5db;
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 0.9rem;
+    border-radius: 0.85rem;
+    text-decoration: none;
+  }
+</style>

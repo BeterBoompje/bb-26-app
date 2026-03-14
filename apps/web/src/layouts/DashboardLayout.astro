@@ -1,0 +1,137 @@
+---
+import "../styles/client-first.css";
+import "../styles/theme.css";
+
+interface Props {
+  title: string;
+  /** Naam van de ingelogde gebruiker (voor de nav) */
+  userName?: string;
+}
+
+const { title, userName } = Astro.props;
+---
+
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title} — BB Dashboard</title>
+  </head>
+  <body>
+    <div class="page-wrapper">
+
+      <!-- Top nav -->
+      <nav class="dash-nav">
+        <div class="dash-nav-inner">
+          <div class="dash-nav-brand">
+            <span class="dash-nav-logo">🌳</span>
+            <span class="dash-nav-title">BB Admin</span>
+          </div>
+          <div class="dash-nav-links">
+            <a href="/app/dashboard/admin" class="dash-nav-link">Overzicht</a>
+            <a href="/app/dashboard/admin/orders" class="dash-nav-link">Bestellingen</a>
+            <a href="/app/dashboard/admin/distributeurs" class="dash-nav-link">Distributeurs</a>
+            <a href="/app/dashboard/admin/rapportage" class="dash-nav-link">Rapportage</a>
+            <a href="/app/dashboard/admin/inkoop" class="dash-nav-link">Inkoop</a>
+            <a href="/app/dashboard/admin/medewerkers" class="dash-nav-link">Medewerkers</a>
+            <a href="/app/scan" class="dash-nav-link">Scanner</a>
+          </div>
+          {userName && <span class="dash-nav-user">{userName}</span>}
+        </div>
+      </nav>
+
+      <!-- Content -->
+      <main class="dash-main">
+        <div class="padding-global">
+          <div class="container-large">
+            <slot />
+          </div>
+        </div>
+      </main>
+
+    </div>
+  </body>
+</html>
+
+<style>
+  .dash-nav {
+    background: #1f2937;
+    border-bottom: 1px solid #374151;
+    padding: 0 1.5rem;
+  }
+
+  .dash-nav-inner {
+    max-width: 80rem;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    height: 3.5rem;
+  }
+
+  .dash-nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+  }
+
+  .dash-nav-logo { font-size: 1.25rem; }
+
+  .dash-nav-title {
+    font-weight: 800;
+    font-size: 1rem;
+    color: #f9fafb;
+    letter-spacing: -0.01em;
+  }
+
+  .dash-nav-links {
+    display: flex;
+    gap: 0.25rem;
+    flex: 1;
+  }
+
+  .dash-nav-link {
+    color: #9ca3af;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.4rem;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .dash-nav-link:hover {
+    background: rgba(255,255,255,0.07);
+    color: #f9fafb;
+  }
+
+  .dash-nav-user {
+    font-size: 0.8rem;
+    color: #6b7280;
+    white-space: nowrap;
+  }
+
+  .dash-main {
+    padding: 2rem 0 4rem;
+    min-height: calc(100vh - 3.5rem);
+    background: #111827;
+    color: #f9fafb;
+  }
+
+  /* ── Dashboard global token overrides ── */
+  :root {
+    --dash-card-bg: #1f2937;
+    --dash-border: #374151;
+    --dash-text-muted: #9ca3af;
+    --dash-green: #10b981;
+    --dash-green-dim: #064e3b;
+    --dash-red: #ef4444;
+    --dash-red-dim: #7f1d1d;
+    --dash-yellow: #f59e0b;
+    --dash-yellow-dim: #78350f;
+    --dash-blue: #6366f1;
+    --dash-blue-dim: #1e1b4b;
+  }
+</style>

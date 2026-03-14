@@ -1,0 +1,279 @@
+---
+import DashboardLayout from "../../../../../layouts/DashboardLayout.astro";
+import { requireAdmin } from "../../../../../lib/auth";
+
+const auth = await requireAdmin(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+if (auth.forbidden) return Astro.redirect("/app");
+
+const { supabase, profile } = auth;
+
+const project_id = profile!.project_id as string | null | undefined;
+
+// Alle medewerkers van dit project
+const { data: medewerkers } = await supabase
+  .from("staff_profiles")
+  .select("id, full_name, email, role, is_active, default_location_id, locations!default_location_id ( name )")
+  .eq("project_id", project_id ?? "")
+  .order("full_name");
+
+const ROL_LABEL: Record<string, string> = {
+  admin: "Admin",
+  location_manager: "Locatiebeheerder",
+  scanner: "Scanner",
+  distributor: "Distributeur",
+};
+
+// Pickup-locaties voor 'default locatie' dropdown in de modal
+const { data: locations } = await supabase
+  .from("locations")
+  .select("id, name, city")
+  .eq("project_id", project_id ?? "")
+  .eq("is_active", true)
+  .order("name");
+---
+
+<DashboardLayout title="Medewerkers" userName={profile!.full_name}>
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Medewerkers</h1>
+      <p class="page-subtitle">{(medewerkers ?? []).length} medewerker{(medewerkers ?? []).length !== 1 ? "s" : ""}</p>
+    </div>
+    <button class="btn-primary" id="btnNieuw">+ Nieuwe medewerker</button>
+  </div>
+
+  {(medewerkers ?? []).length === 0 ? (
+    <div class="empty-state">
+      <p>Nog geen medewerkers.</p>
+      <p class="empty-hint">Klik op '+ Nieuwe medewerker' om een uitnodiging te sturen.</p>
+    </div>
+  ) : (
+    <div class="table-wrapper">
+      <table class="mw-table">
+        <thead>
+          <tr>
+            <th>Naam</th>
+            <th>E-mail</th>
+            <th>Rol</th>
+            <th>Default locatie</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(medewerkers ?? []).map((m: any) => (
+            <tr
+              class={"mw-row" + (!m.is_active ? " mw-row--inactive" : "")}
+              onclick={"window.location='/app/dashboard/admin/medewerkers/" + m.id + "'"}
+              style="cursor:pointer"
+            >
+              <td class="name-cell">{m.full_name}</td>
+              <td class="email-cell">{m.email}</td>
+              <td>
+                <span class={"role-badge role-" + m.role}>{ROL_LABEL[m.role] ?? m.role}</span>
+              </td>
+              <td class="loc-cell">
+                {m.locations?.name ?? <span class="muted">—</span>}
+              </td>
+              <td>
+                {m.is_active
+                  ? <span class="badge-active">Actief</span>
+                  : <span class="badge-inactive">Inactief</span>
+                }
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+
+  <!-- Modal: nieuwe medewerker -->
+  <div class="modal-overlay" id="modalNieuw" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Nieuwe medewerker uitnodigen</h2>
+        <button class="modal-close" id="btnClose">✕</button>
+      </div>
+      <p class="modal-hint">
+        De medewerker ontvangt een uitnodigingsmail met een link om een wachtwoord in te stellen.
+      </p>
+      <form id="formNieuw" class="modal-form">
+        <div class="form-group">
+          <label>Volledige naam <span class="required">*</span></label>
+          <input type="text" name="full_name" required placeholder="bijv. Jan Janssen" />
+        </div>
+        <div class="form-group">
+          <label>E-mailadres <span class="required">*</span></label>
+          <input type="email" name="email" required placeholder="jan@beterboompje.nl" />
+        </div>
+        <div class="form-group">
+          <label>Rol <span class="required">*</span></label>
+          <select name="role" required>
+            <option value="scanner">Scanner</option>
+            <option value="location_manager">Locatiebeheerder</option>
+            <option value="distributor">Distributeur</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Default locatie (optioneel)</label>
+          <select name="default_location_id">
+            <option value="">— Geen —</option>
+            {(locations ?? []).map((l: any) => (
+              <option value={l.id}>{l.name}{l.city ? " (" + l.city + ")" : ""}</option>
+            ))}
+          </select>
+          <span class="form-hint">Wordt gebruikt als startlocatie voor de scanner.</span>
+        </div>
+        <div id="formError" class="form-error" style="display:none"></div>
+        <div id="formSuccess" class="form-success" style="display:none"></div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="btnCancel">Annuleren</button>
+          <button type="submit" class="btn-primary">Uitnodiging versturen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  const btnNieuw = document.getElementById("btnNieuw");
+  const modal = document.getElementById("modalNieuw");
+  const btnClose = document.getElementById("btnClose");
+  const btnCancel = document.getElementById("btnCancel");
+  const form = document.getElementById("formNieuw");
+  const formError = document.getElementById("formError");
+
+  function openModal() { modal.style.display = "flex"; }
+  function closeModal() { modal.style.display = "none"; form.reset(); formError.style.display = "none"; }
+
+  btnNieuw.addEventListener("click", openModal);
+  btnClose.addEventListener("click", closeModal);
+  btnCancel.addEventListener("click", closeModal);
+  modal.addEventListener("click", function(e) { if (e.target === modal) closeModal(); });
+
+  form.addEventListener("submit", async function(e) {
+    e.preventDefault();
+    formError.style.display = "none";
+    const successEl = document.getElementById("formSuccess");
+    successEl.style.display = "none";
+    const data = Object.fromEntries(new FormData(form));
+    const btn = form.querySelector("[type=submit]");
+    btn.disabled = true;
+    btn.textContent = "Versturen…";
+    try {
+      const res = await fetch("/api/medewerkers/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        formError.textContent = json.error || "Er ging iets mis.";
+        formError.style.display = "block";
+      } else {
+        successEl.textContent = "✓ Uitnodiging verstuurd naar " + data.email + ". De pagina wordt herladen…";
+        successEl.style.display = "block";
+        setTimeout(() => window.location.href = "/app/dashboard/admin/medewerkers/" + json.medewerker.id, 1500);
+      }
+    } catch {
+      formError.textContent = "Netwerkfout.";
+      formError.style.display = "block";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Uitnodiging versturen";
+    }
+  });
+</script>
+
+<style>
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .page-title { font-size: 1.75rem; font-weight: 800; color: #f9fafb; margin: 0 0 0.25rem; }
+  .page-subtitle { color: #9ca3af; font-size: 0.875rem; margin: 0; }
+
+  .btn-primary {
+    background: #10b981; color: #fff; border: none; border-radius: 0.5rem;
+    padding: 0.6rem 1.25rem; font-size: 0.875rem; font-weight: 600; cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-primary:hover { background: #059669; }
+  .btn-secondary {
+    background: #374151; color: #f9fafb; border: none; border-radius: 0.5rem;
+    padding: 0.6rem 1.25rem; font-size: 0.875rem; font-weight: 600; cursor: pointer;
+  }
+  .btn-secondary:hover { background: #4b5563; }
+
+  .empty-state { text-align: center; padding: 4rem 2rem; color: #9ca3af; }
+  .empty-state p { margin: 0 0 0.5rem; }
+  .empty-hint { font-size: 0.875rem; }
+  .link { color: #6366f1; text-decoration: none; }
+  .link:hover { text-decoration: underline; }
+  .muted { color: #4b5563; }
+
+  .table-wrapper { overflow-x: auto; }
+  .mw-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .mw-table th {
+    text-align: left; padding: 0.6rem 0.75rem; font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280;
+    border-bottom: 1px solid #374151; background: #1f2937; white-space: nowrap;
+  }
+  .mw-table td { padding: 0.7rem 0.75rem; border-bottom: 1px solid #1f293766; color: #f9fafb; }
+  .mw-row:hover td { background: #1f293740; }
+  .mw-row--inactive td { opacity: 0.5; }
+
+  .name-cell { font-weight: 600; }
+  .email-cell { color: #9ca3af; font-size: 0.8rem; }
+  .loc-cell { color: #9ca3af; font-size: 0.85rem; }
+
+  .role-badge {
+    display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
+    font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .role-admin { background: #6366f133; color: #a5b4fc; }
+  .role-location_manager { background: #0891b233; color: #67e8f9; }
+  .role-scanner { background: #16a34a33; color: #86efac; }
+  .role-distributor { background: #d9770633; color: #fdba74; }
+
+  .badge-active { color: #10b981; font-size: 0.8rem; font-weight: 600; }
+  .badge-inactive { color: #6b7280; font-size: 0.8rem; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal {
+    background: #1f2937; border: 1px solid #374151; border-radius: 0.75rem;
+    padding: 1.75rem; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto;
+  }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+  .modal-header h2 { font-size: 1.2rem; font-weight: 700; color: #f9fafb; margin: 0; }
+  .modal-close { background: none; border: none; color: #9ca3af; font-size: 1.1rem; cursor: pointer; }
+  .modal-hint { font-size: 0.8rem; color: #9ca3af; margin: 0 0 1.25rem; line-height: 1.5; }
+  .modal-form { display: flex; flex-direction: column; gap: 1rem; }
+  .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .form-group label { font-size: 0.8rem; font-weight: 600; color: #9ca3af; }
+  .form-group input, .form-group select, .form-group textarea {
+    background: #111827; border: 1px solid #374151; border-radius: 0.4rem;
+    padding: 0.5rem 0.75rem; color: #f9fafb; font-size: 0.9rem; font-family: inherit;
+  }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: #6366f1; }
+  .mono-input { font-family: monospace; font-size: 0.82rem; }
+  .form-hint { font-size: 0.75rem; color: #6b7280; }
+  .required { color: #ef4444; }
+  .form-error {
+    color: #ef4444; font-size: 0.85rem; background: #7f1d1d22;
+    border: 1px solid #ef444433; padding: 0.5rem 0.75rem; border-radius: 0.4rem;
+  }
+  .form-success {
+    color: #10b981; font-size: 0.85rem; background: #064e3b22;
+    border: 1px solid #10b98133; padding: 0.5rem 0.75rem; border-radius: 0.4rem;
+  }
+  .form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 0.5rem; }
+</style>

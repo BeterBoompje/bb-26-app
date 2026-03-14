@@ -1,0 +1,72 @@
+---
+import ScannerLayout from "../../../../layouts/ScannerLayout.astro";
+import { requireAuth } from "../../../../lib/auth";
+
+const auth = await requireAuth(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+---
+
+<ScannerLayout title="Afgehaald">
+  <div class="approved-screen">
+    <div class="approved-icon">✓</div>
+    <p class="approved-title">Afgehaald!</p>
+    <p class="approved-sub">Boom succesvol uitgegeven.</p>
+    <p class="approved-redirect">Terug naar scanner…</p>
+  </div>
+</ScannerLayout>
+
+<style>
+  .approved-screen {
+    min-height: 100vh;
+    background: #064e3b;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .approved-icon {
+    font-size: 5rem;
+    font-weight: 900;
+    color: #6ee7b7;
+    line-height: 1;
+    margin-bottom: 1rem;
+  }
+
+  .approved-title {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: #ecfdf5;
+    margin-bottom: 0.5rem;
+  }
+
+  .approved-sub {
+    font-size: 1.1rem;
+    color: #a7f3d0;
+    margin-bottom: 2rem;
+  }
+
+  .approved-redirect {
+    font-size: 0.85rem;
+    color: #6ee7b7;
+    opacity: 0.7;
+  }
+</style>
+
+<script>
+  // Vibrate on load
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+
+  // Auto-redirect after 2 seconds
+  setTimeout(() => {
+    window.location.href = "/app/scan";
+  }, 2000);
+</script>

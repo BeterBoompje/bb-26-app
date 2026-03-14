@@ -10,24 +10,30 @@
 -- ============================================================
 
 
--- ── 0. ADMIN GEBRUIKER ───────────────────────────────────────
--- User aangemaakt via Supabase Dashboard op 2026-03-12.
-
-insert into public.staff_profiles (id, full_name, email, role, is_active)
-values (
-  '1f7152bb-4920-4400-bd67-14e3085c47fa',
-  'Alex Degeling',
-  'alex@beterboompje.nl',
-  'admin',
-  true
-) on conflict (id) do nothing;
-
-
--- ── 1. PROJECT: BB ───────────────────────────────────────────
+-- ── 0. PROJECT: BB ───────────────────────────────────────────
+-- Project eerst, zodat we de id kunnen gebruiken voor de admin.
 
 insert into public.projects (slug, name, code, is_active)
 values ('bb', 'Beter Boompje', 'BB', true)
 on conflict (slug) do nothing;
+
+
+-- ── 1. ADMIN GEBRUIKER ───────────────────────────────────────
+-- User aangemaakt via Supabase Dashboard op 2026-03-12.
+-- project_id wordt gekoppeld aan het BB-project.
+
+insert into public.staff_profiles (id, project_id, full_name, email, role, is_active)
+select
+  '1f7152bb-4920-4400-bd67-14e3085c47fa',
+  p.id,
+  'Alex Degeling',
+  'alex@beterboompje.nl',
+  'admin',
+  true
+from public.projects p
+where p.slug = 'bb'
+on conflict (id) do update
+  set project_id = excluded.project_id;
 
 
 -- ── 2. SEIZOEN: BB 2026 ──────────────────────────────────────
@@ -234,3 +240,42 @@ from public.location_season_details lsd
 join public.locations l on l.id = lsd.location_id
 join public.seasons s   on s.id = lsd.season_id
 order by l.name;
+
+
+-- ── PRODUCT VARIANTEN ─────────────────────────────────────────
+-- Boomcategorieën zoals gebruikt in het voorraadsysteem en de paklijsten.
+-- Gebaseerd op de BB-paklijsttemplate en teller-2000.js categorieën.
+--
+-- sku_pattern = code zoals gebruikt in Shopify SKUs en inventory_lines.category_code
+-- display_label = gebruiksvriendelijke naam voor UI
+-- color_hex / color_name = kleurcodering uit de paklijst (geel/wit/paars/blauw etc.)
+-- has_rootball = met kluit (MET) of zonder (ZONDER)
+-- sort_order = volgorde op scherm (MET klein→groot, dan ZONDER klein→groot)
+
+insert into public.product_variants
+  (project_id, sku_pattern, display_label, color_hex, color_name, has_rootball, size_from_cm, size_to_cm, sort_order)
+select
+  p.id,
+  v.sku_pattern,
+  v.display_label,
+  v.color_hex,
+  v.color_name,
+  v.has_rootball,
+  v.size_from_cm,
+  v.size_to_cm,
+  v.sort_order
+from public.projects p,
+(values
+  -- MET KLUIT (Picea / Nordmann met kluit)
+  ('MET-100-125',  'Picea met kluit 100–125 cm',        '#FFFF00', 'geel',   true,  100, 125, 10),
+  ('MET-125-150',  'Picea met kluit 125–150 cm',        '#FFFFFF', 'wit',    true,  125, 150, 20),
+  ('MET-150-175',  'Picea met kluit 150–175 cm',        '#A855F7', 'paars',  true,  150, 175, 30),
+  ('MET-175-200',  'Picea met kluit 175–200 cm',        '#3B82F6', 'blauw',  true,  175, 200, 40),
+  -- ZONDER KLUIT (Nordmann zonder kluit)
+  ('ZONDER-150-175', 'Nordmann zonder kluit 150–175 cm', '#EF4444', 'rood',  false, 150, 175, 50),
+  ('ZONDER-175-200', 'Nordmann zonder kluit 175–200 cm', '#FFFFFF', 'wit',   false, 175, 200, 60),
+  ('ZONDER-200-250', 'Nordmann zonder kluit 200–250 cm', '#3B82F6', 'blauw', false, 200, 250, 70),
+  ('ZONDER-250-300', 'Nordmann zonder kluit 250–300 cm', '#22C55E', 'groen', false, 250, 300, 80)
+) as v(sku_pattern, display_label, color_hex, color_name, has_rootball, size_from_cm, size_to_cm, sort_order)
+where p.slug = 'bb'
+on conflict do nothing;

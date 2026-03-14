@@ -1,0 +1,589 @@
+---
+import DashboardLayout from "../../../../../layouts/DashboardLayout.astro";
+import { requireAdmin } from "../../../../../lib/auth";
+
+const auth = await requireAdmin(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+if (auth.forbidden) return Astro.redirect("/app");
+
+const { supabase, profile } = auth;
+
+// Seizoenen
+const { data: seasons } = await supabase
+  .from("seasons")
+  .select("id, year, label, is_active")
+  .order("year", { ascending: false });
+
+const url = new URL(Astro.request.url);
+const seasonParam = url.searchParams.get("season_id");
+
+const activeSeason = (seasons ?? []).find((s: any) => s.is_active) ?? (seasons ?? [])[0];
+const currentSeason = seasonParam
+  ? (seasons ?? []).find((s: any) => s.id === seasonParam) ?? activeSeason
+  : activeSeason;
+
+// ── Tab 1: Totaaloverzicht per boomtype ────────────────────────
+// Per category_code, gesommeerd over alle distributeurs
+type DistBreakdown = {
+  distributor_id: string;
+  name: string;
+  voorraad: number;
+  ingekocht: number;
+  extra: number;
+};
+
+type OverzichtRow = {
+  category_code: string;
+  display_label: string | null;
+  voorraad: number;
+  ingekocht: number;
+  extra: number;
+  beschikbaar: number;
+  verkocht: number;
+  restant: number;
+  distributors: DistBreakdown[];
+};
+
+const overzicht: OverzichtRow[] = [];
+
+if (currentSeason) {
+  const { data: lines } = await supabase
+    .from("inventory_lines")
+    .select(`
+      category_code, display_label, voorraad, ingekocht, distributor_id,
+      distributors ( id, name ),
+      inventory_adjustments ( quantity )
+    `)
+    .eq("season_id", currentSeason.id)
+    .order("category_code");
+
+  // Groepeer per category_code (over meerdere distributeurs)
+  const grouped: Record<string, OverzichtRow> = {};
+
+  for (const line of lines ?? []) {
+    const code = line.category_code;
+    const extra = (line.inventory_adjustments as any[])?.reduce(
+      (s: number, a: any) => s + (a.quantity ?? 0),
+      0
+    ) ?? 0;
+
+    if (!grouped[code]) {
+      grouped[code] = {
+        category_code: code,
+        display_label: line.display_label ?? null,
+        voorraad: 0,
+        ingekocht: 0,
+        extra: 0,
+        beschikbaar: 0,
+        verkocht: 0,
+        restant: 0,
+        distributors: [],
+      };
+    }
+    grouped[code].voorraad += line.voorraad;
+    grouped[code].ingekocht += line.ingekocht;
+    grouped[code].extra += extra;
+
+    const dist = (line.distributors as any);
+    if (dist?.id) {
+      grouped[code].distributors.push({
+        distributor_id: dist.id,
+        name: dist.name ?? "Onbekend",
+        voorraad: line.voorraad,
+        ingekocht: line.ingekocht,
+        extra,
+      });
+    }
+  }
+
+  // Verkochte aantallen koppelen via SKU (als shopify_order_items beschikbaar)
+  const { data: soldItems } = await supabase
+    .from("shopify_order_items")
+    .select("sku, quantity, shopify_orders!inner(season_id, cancelled_at)")
+    .eq("shopify_orders.season_id", currentSeason.id)
+    .is("shopify_orders.cancelled_at", null);
+
+  for (const item of soldItems ?? []) {
+    const sku = (item.sku ?? "") as string;
+    for (const code of Object.keys(grouped)) {
+      if (sku.startsWith(code)) {
+        grouped[code].verkocht += (item.quantity ?? 0) as number;
+        break;
+      }
+    }
+  }
+
+  for (const row of Object.values(grouped)) {
+    row.beschikbaar = row.voorraad + row.ingekocht + row.extra;
+    row.restant = row.beschikbaar - row.verkocht;
+    overzicht.push(row);
+  }
+  overzicht.sort((a, b) => a.category_code.localeCompare(b.category_code));
+}
+
+// Totalen voor overzicht
+const totals = overzicht.reduce(
+  (acc, r) => {
+    acc.voorraad += r.voorraad;
+    acc.ingekocht += r.ingekocht;
+    acc.extra += r.extra;
+    acc.beschikbaar += r.beschikbaar;
+    acc.verkocht += r.verkocht;
+    acc.restant += r.restant;
+    return acc;
+  },
+  { voorraad: 0, ingekocht: 0, extra: 0, beschikbaar: 0, verkocht: 0, restant: 0 }
+);
+
+// ── Tab 2: Locatie & datum matrix ──────────────────────────────
+type LocatieRow = {
+  locatie: string;
+  datum: string | null;
+  tijden: string | null;
+  totaal: number;
+  opgehaald: number;
+  klaar: number;
+  geblokkeerd: number;
+};
+
+const locatieMatrix: LocatieRow[] = [];
+
+if (currentSeason) {
+  const { data: ptData } = await supabase
+    .from("pickup_targets")
+    .select(`
+      pickup_status,
+      locations!intended_location_id ( id, name, city ),
+      location_season_details!inner (
+        pickup_window_1_date, pickup_window_1_hours
+      )
+    `)
+    .eq("season_id", currentSeason.id);
+
+  // Groepeer per locatie + datum
+  const locGroups: Record<string, LocatieRow> = {};
+
+  for (const pt of ptData ?? []) {
+    const loc = (pt.locations as any);
+    const lsd = (pt.location_season_details as any);
+    if (!loc) continue;
+    const key = loc.id + "|" + (lsd?.pickup_window_1_date ?? "");
+    if (!locGroups[key]) {
+      locGroups[key] = {
+        locatie: loc.city ? loc.name + " (" + loc.city + ")" : loc.name,
+        datum: lsd?.pickup_window_1_date ?? null,
+        tijden: lsd?.pickup_window_1_hours ?? null,
+        totaal: 0,
+        opgehaald: 0,
+        klaar: 0,
+        geblokkeerd: 0,
+      };
+    }
+    locGroups[key].totaal++;
+    if (pt.pickup_status === "picked_up") locGroups[key].opgehaald++;
+    if (pt.pickup_status === "ready") locGroups[key].klaar++;
+    if (pt.pickup_status === "blocked") locGroups[key].geblokkeerd++;
+  }
+
+  locatieMatrix.push(...Object.values(locGroups));
+  locatieMatrix.sort((a, b) => {
+    const da = a.datum ?? "";
+    const db = b.datum ?? "";
+    if (da !== db) return da.localeCompare(db);
+    return a.locatie.localeCompare(b.locatie);
+  });
+}
+
+function fmtDate(d: string | null): string {
+  if (!d) return "—";
+  const dt = new Date(d);
+  return dt.toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" });
+}
+---
+
+<DashboardLayout title="Rapportage" userName={profile!.full_name}>
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Rapportage</h1>
+      <p class="page-subtitle">Vervangt Google Sheets / teller-2000.js</p>
+    </div>
+    <div class="header-actions">
+      <form method="get" id="seasonForm" style="display:inline">
+        <select name="season_id" class="season-select" onchange="this.form.submit()">
+          {(seasons ?? []).map((s: any) => (
+            <option
+              value={s.id}
+              {...(s.id === currentSeason?.id ? { selected: true } : {})}
+            >
+              {s.label}{s.is_active ? " (actief)" : ""}
+            </option>
+          ))}
+        </select>
+      </form>
+      {currentSeason && (
+        <a
+          href={"/api/rapportage/export-csv?season_id=" + currentSeason.id}
+          class="btn-secondary"
+          download
+        >
+          ↓ CSV exporteren
+        </a>
+      )}
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" id="tab1">
+      Totaaloverzicht per boomtype
+    </button>
+    <button class="tab" id="tab2">
+      Locatie &amp; datum matrix
+    </button>
+  </div>
+
+  <!-- Tab 1: Totaaloverzicht -->
+  <div id="panel-overzicht" class="tab-panel">
+    {overzicht.length === 0 ? (
+      <div class="empty-state">
+        Geen voorraaddata beschikbaar voor {currentSeason?.label ?? "dit seizoen"}.
+        <br />
+        <a href="/app/dashboard/admin/distributeurs" class="link">Voeg eerst distributeurs en voorraad toe →</a>
+      </div>
+    ) : (
+      <div class="table-wrapper">
+        <table class="rep-table">
+          <thead>
+            <tr>
+              <th class="toggle-col"></th>
+              <th>Categorie</th>
+              <th>Omschrijving</th>
+              <th class="num-col">Voorraad</th>
+              <th class="num-col">Ingekocht</th>
+              <th class="num-col">Extra</th>
+              <th class="num-col total-col">Beschikbaar</th>
+              <th class="num-col sold-col">Verkocht</th>
+              <th class="num-col rest-col">Restant</th>
+            </tr>
+          </thead>
+          <tbody>
+            {overzicht.map((row, idx) => (
+              <Fragment>
+                <tr>
+                  <td class="toggle-col">
+                    {row.distributors.length > 1 && (
+                      <button class="toggle-btn" data-detail={"dist-" + idx} title="Toon per distributeur">▶</button>
+                    )}
+                  </td>
+                  <td class="code-cell">{row.category_code}</td>
+                  <td class="label-cell">{row.display_label ?? "—"}</td>
+                  <td class="num-col">{row.voorraad.toLocaleString("nl")}</td>
+                  <td class="num-col">{row.ingekocht.toLocaleString("nl")}</td>
+                  <td class={"num-col " + (row.extra > 0 ? "pos-cell" : row.extra < 0 ? "neg-cell" : "")}>
+                    {row.extra > 0 ? "+" : ""}{row.extra.toLocaleString("nl")}
+                  </td>
+                  <td class="num-col total-col">{row.beschikbaar.toLocaleString("nl")}</td>
+                  <td class="num-col sold-col">{row.verkocht.toLocaleString("nl")}</td>
+                  <td class={"num-col rest-col " + (row.restant < 0 ? "neg-cell" : "")}>
+                    {row.restant.toLocaleString("nl")}
+                  </td>
+                </tr>
+                {row.distributors.length > 1 && (
+                  <tr class="dist-detail" id={"dist-" + idx} style="display:none">
+                    <td></td>
+                    <td colspan="8">
+                      <div class="dist-breakdown">
+                        {row.distributors.map((d) => (
+                          <div class="dist-line">
+                            <a href={"/app/dashboard/admin/distributeurs/" + d.distributor_id} class="dist-name">{d.name}</a>
+                            <span class="dist-nums">
+                              <span title="Voorraad">V: {d.voorraad}</span>
+                              <span title="Ingekocht">I: {d.ingekocht}</span>
+                              {d.extra !== 0 && (
+                                <span class={d.extra > 0 ? "pos-cell" : "neg-cell"} title="Aanpassing">
+                                  Δ {d.extra > 0 ? "+" : ""}{d.extra}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr class="totals-row">
+              <td></td>
+              <td colspan="2"><strong>Totaal</strong></td>
+              <td class="num-col">{totals.voorraad.toLocaleString("nl")}</td>
+              <td class="num-col">{totals.ingekocht.toLocaleString("nl")}</td>
+              <td class="num-col">{totals.extra > 0 ? "+" : ""}{totals.extra.toLocaleString("nl")}</td>
+              <td class="num-col total-col">{totals.beschikbaar.toLocaleString("nl")}</td>
+              <td class="num-col sold-col">{totals.verkocht.toLocaleString("nl")}</td>
+              <td class={"num-col rest-col " + (totals.restant < 0 ? "neg-cell" : "")}>
+                {totals.restant.toLocaleString("nl")}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    )}
+  </div>
+
+  <!-- Tab 2: Locatie & datum matrix -->
+  <div id="panel-locatie" class="tab-panel" style="display:none">
+    {locatieMatrix.length === 0 ? (
+      <div class="empty-state">
+        <strong>Nog geen ophaaldata voor {currentSeason?.label ?? "dit seizoen"}.</strong>
+        <br /><br />
+        De locatie &amp; datum matrix toont klantorders per ophaallocatie en -dag.<br />
+        Deze data verschijnt automatisch zodra Shopify-bestellingen zijn gesynchroniseerd.
+        <br /><br />
+        <span style="font-size:0.8rem">Tip: gebruik de debug-tools om testorders aan te maken.</span>
+      </div>
+    ) : (
+      <div class="table-wrapper">
+        <table class="rep-table">
+          <thead>
+            <tr>
+              <th>Locatie</th>
+              <th>Datum</th>
+              <th>Tijden</th>
+              <th class="num-col">Totaal</th>
+              <th class="num-col total-col">Opgehaald</th>
+              <th class="num-col">Klaar</th>
+              <th class="num-col">Geblokkeerd</th>
+              <th class="num-col">% Opgehaald</th>
+            </tr>
+          </thead>
+          <tbody>
+            {locatieMatrix.map((row) => {
+              const pct = row.totaal > 0
+                ? Math.round((row.opgehaald / row.totaal) * 100)
+                : 0;
+              return (
+                <tr>
+                  <td>{row.locatie}</td>
+                  <td class="date-cell">{fmtDate(row.datum)}</td>
+                  <td class="tijden-cell">{row.tijden ?? "—"}</td>
+                  <td class="num-col">{row.totaal}</td>
+                  <td class="num-col total-col">{row.opgehaald}</td>
+                  <td class="num-col">{row.klaar}</td>
+                  <td class={"num-col " + (row.geblokkeerd > 0 ? "neg-cell" : "")}>{row.geblokkeerd}</td>
+                  <td class="num-col">
+                    <div class="pct-bar-wrap">
+                      <div class="pct-bar" style={"width:" + pct + "%"}></div>
+                      <span>{pct}%</span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            {(() => {
+              const t = locatieMatrix.reduce(
+                (acc, r) => {
+                  acc.totaal += r.totaal;
+                  acc.opgehaald += r.opgehaald;
+                  acc.klaar += r.klaar;
+                  acc.geblokkeerd += r.geblokkeerd;
+                  return acc;
+                },
+                { totaal: 0, opgehaald: 0, klaar: 0, geblokkeerd: 0 }
+              );
+              const tpct = t.totaal > 0 ? Math.round((t.opgehaald / t.totaal) * 100) : 0;
+              return (
+                <tr class="totals-row">
+                  <td colspan="3"><strong>Totaal</strong></td>
+                  <td class="num-col">{t.totaal}</td>
+                  <td class="num-col total-col">{t.opgehaald}</td>
+                  <td class="num-col">{t.klaar}</td>
+                  <td class="num-col">{t.geblokkeerd}</td>
+                  <td class="num-col">{tpct}%</td>
+                </tr>
+              );
+            })()}
+          </tfoot>
+        </table>
+      </div>
+    )}
+  </div>
+
+  <script is:inline>
+    function switchTab(tab) {
+      document.getElementById("panel-overzicht").style.display = tab === "overzicht" ? "block" : "none";
+      document.getElementById("panel-locatie").style.display = tab === "locatie" ? "block" : "none";
+      document.getElementById("tab1").classList.toggle("active", tab === "overzicht");
+      document.getElementById("tab2").classList.toggle("active", tab === "locatie");
+    }
+    document.getElementById("tab1").addEventListener("click", function() { switchTab("overzicht"); });
+    document.getElementById("tab2").addEventListener("click", function() { switchTab("locatie"); });
+
+    // Distributor uitklap
+    document.querySelectorAll(".toggle-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var detailId = btn.getAttribute("data-detail");
+        var detail = document.getElementById(detailId);
+        var expanded = detail.style.display !== "none";
+        detail.style.display = expanded ? "none" : "table-row";
+        btn.textContent = expanded ? "▶" : "▼";
+      });
+    });
+  </script>
+</DashboardLayout>
+
+<style>
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .page-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #f9fafb;
+    margin: 0 0 0.25rem;
+  }
+  .page-subtitle { color: #9ca3af; font-size: 0.875rem; margin: 0; }
+  .header-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+
+  .season-select {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 0.4rem;
+    color: #f9fafb;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+  .btn-secondary {
+    background: #374151;
+    color: #f9fafb;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .btn-secondary:hover { background: #4b5563; }
+
+  .tabs {
+    display: flex;
+    gap: 0.25rem;
+    border-bottom: 1px solid #374151;
+    margin-bottom: 1.5rem;
+  }
+  .tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #9ca3af;
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    margin-bottom: -1px;
+    transition: color 0.1s, border-color 0.1s;
+  }
+  .tab.active { color: #f9fafb; border-bottom-color: #6366f1; }
+  .tab:hover { color: #f9fafb; }
+
+  .tab-panel { }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #6b7280;
+    line-height: 1.8;
+  }
+  .link { color: #6366f1; text-decoration: none; }
+  .link:hover { text-decoration: underline; }
+
+  .table-wrapper { overflow-x: auto; }
+
+  .rep-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .rep-table th {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    border-bottom: 1px solid #374151;
+    white-space: nowrap;
+    background: #1f2937;
+  }
+  .rep-table td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid #1f293766;
+    color: #f9fafb;
+  }
+  .rep-table tr:hover td { background: #1f293733; }
+
+  .num-col { text-align: right; white-space: nowrap; }
+  .code-cell { font-family: monospace; font-size: 0.85rem; color: #d1d5db; }
+  .label-cell { color: #9ca3af; }
+  .date-cell { white-space: nowrap; color: #d1d5db; }
+  .tijden-cell { color: #9ca3af; font-size: 0.8rem; }
+  .total-col { color: #10b981; font-weight: 700; }
+  .sold-col { color: #6366f1; }
+  .rest-col { font-weight: 600; }
+  .pos-cell { color: #10b981; }
+  .neg-cell { color: #ef4444; }
+
+  .totals-row td {
+    border-top: 2px solid #374151;
+    border-bottom: none;
+    background: #1f2937;
+    font-weight: 700;
+  }
+
+  .pct-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+  .pct-bar {
+    height: 6px;
+    background: #10b981;
+    border-radius: 999px;
+    min-width: 2px;
+    max-width: 60px;
+    transition: width 0.3s;
+  }
+
+  /* Distributor uitklap */
+  .toggle-col { width: 2rem; padding: 0.4rem 0.25rem 0.4rem 0.75rem !important; }
+  .toggle-btn {
+    background: none; border: none; color: #6b7280; cursor: pointer;
+    font-size: 0.65rem; padding: 0.2rem 0.4rem; border-radius: 0.25rem;
+    line-height: 1;
+  }
+  .toggle-btn:hover { background: #374151; color: #f9fafb; }
+
+  .dist-detail > td { background: #0f172a !important; padding: 0.35rem 0.75rem 0.6rem !important; }
+  .dist-breakdown { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .dist-line {
+    display: flex; align-items: center; gap: 0.75rem;
+    background: #1f2937; border: 1px solid #374151; border-radius: 0.4rem;
+    padding: 0.35rem 0.75rem; font-size: 0.8rem;
+  }
+  .dist-name { font-weight: 600; color: #d1d5db; text-decoration: none; }
+  .dist-name:hover { color: #6366f1; text-decoration: underline; }
+  .dist-nums { display: flex; gap: 0.6rem; color: #6b7280; font-size: 0.78rem; }
+</style>
