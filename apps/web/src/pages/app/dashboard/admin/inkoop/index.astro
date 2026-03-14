@@ -188,7 +188,7 @@ for (const l of allLines) {
       <form method="get" style="display:inline">
         <select name="season_id" class="season-select" onchange="this.form.submit()">
           {(seasons ?? []).map((s: any) => (
-            <option value={s.id} {...(s.id === currentSeason?.id ? { selected: true } : {})}>
+            <option value={s.id} selected={s.id === currentSeason?.id}>
               {s.label}{s.is_active ? " (actief)" : ""}
             </option>
           ))}
@@ -244,9 +244,9 @@ for (const l of allLines) {
               <tr class="ink-row" data-id={row.id}>
                 <td><span class={"status-badge status-" + row.status}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
                 <td class="doel-cell">{row.doel.split("|")[0].trim()}</td>
-                <td class="lev-cell">{row.leverancier || <span class="muted">—</span>}</td>
+                <td class="lev-cell">{row.leverancier || "—"}</td>
                 <td class="code-cell">{row.categorie_code}</td>
-                <td class="naam-cell">{row.product_naam || <span class="muted">—</span>}</td>
+                <td class="naam-cell">{row.product_naam || "—"}</td>
                 <td>
                   {row.label_kleur && (
                     <span>
@@ -255,7 +255,7 @@ for (const l of allLines) {
                     </span>
                   )}
                 </td>
-                <td class="week-cell">{row.levering_week || <span class="muted">—</span>}</td>
+                <td class="week-cell">{row.levering_week || "—"}</td>
                 <td class="num-col">{fmtEur(row.inkoop_excl)}</td>
                 <td class="num-col">{fmtEur(row.kostprijs)}</td>
                 <td class="num-col">{fmtEur(row.verkoop_excl)}</td>
@@ -319,9 +319,9 @@ for (const l of allLines) {
                 {m.rows.map((row) => (
                   <tr class="ink-row" data-id={row.id}>
                     <td><span class={"status-badge status-" + row.status}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
-                    <td class="lev-cell">{row.leverancier || <span class="muted">—</span>}</td>
+                    <td class="lev-cell">{row.leverancier || "—"}</td>
                     <td class="code-cell">{row.categorie_code}</td>
-                    <td class="naam-cell">{row.product_naam || <span class="muted">—</span>}</td>
+                    <td class="naam-cell">{row.product_naam || "—"}</td>
                     <td>
                       {row.label_kleur && (
                         <span>
@@ -330,7 +330,7 @@ for (const l of allLines) {
                         </span>
                       )}
                     </td>
-                    <td class="week-cell">{row.levering_week || <span class="muted">—</span>}</td>
+                    <td class="week-cell">{row.levering_week || "—"}</td>
                     <td class="num-col">{fmtEur(row.inkoop_excl)}</td>
                     <td class="num-col">{fmtEur(row.kostprijs)}</td>
                     <td class="num-col">{fmtEur(row.verkoop_excl)}</td>
@@ -624,7 +624,7 @@ for (const l of allLines) {
     });
 
     // Formulier opslaan
-    form.addEventListener("submit", async function(e) {
+    form.addEventListener("submit", async function (e) {
       e.preventDefault();
       formError.style.display = "none";
       submitBtn.disabled = true;
