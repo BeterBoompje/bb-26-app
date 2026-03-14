@@ -1,22 +1,25 @@
 import type { APIRoute } from "astro";
-import { createServerClient } from "../../../lib/supabase/server";
+import { requireStaff } from "../../../lib/auth";
+import { parseBody, jsonError, UNAUTHORIZED, FORBIDDEN } from "../../../lib/api-helpers";
 
 export const POST: APIRoute = async ({ request, cookies }) => {
-  const { supabase, session } = await createServerClient(cookies);
-  if (!session) {
-    return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
-  }
+  // Bevestiging vereist actieve staff-membership (scanner of hoger)
+  const auth = await requireStaff(cookies, ["admin", "location_manager", "scanner"]);
+  if (!auth) return UNAUTHORIZED();
+  if (auth.forbidden) return FORBIDDEN();
 
-  let body: { pickup_target_id: string; location_id: string; notes?: string };
-  try {
-    body = await request.json();
-  } catch {
-    return new Response(JSON.stringify({ error: "invalid_json" }), { status: 400 });
-  }
+  const { supabase, session } = auth;
 
-  const { pickup_target_id, location_id, notes } = body;
+  const parsed = await parseBody<{
+    pickup_target_id: string;
+    location_id: string;
+    notes?: string;
+  }>(request);
+  if (parsed.error) return parsed.error;
+
+  const { pickup_target_id, location_id, notes } = parsed.data;
   if (!pickup_target_id || !location_id) {
-    return new Response(JSON.stringify({ error: "missing_fields" }), { status: 400 });
+    return jsonError("pickup_target_id en location_id zijn verplicht");
   }
 
   const { data, error } = await supabase.rpc("confirm_pickup", {
