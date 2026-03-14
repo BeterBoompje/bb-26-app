@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { requireAdmin } from "../../../../lib/auth";
+import { getPurchaseOrderTableMissingMessage, isPurchaseOrderTableMissing } from "../../../../lib/inkoop";
 
 /**
  * PATCH /api/inkoop/[id]/update
@@ -57,6 +58,9 @@ export const PATCH: APIRoute = async ({ request, cookies, params }) => {
   const { data, error } = await q.select("id").single();
 
   if (error) {
+    if (isPurchaseOrderTableMissing(error)) {
+      return new Response(JSON.stringify({ error: getPurchaseOrderTableMissingMessage() }), { status: 500 });
+    }
     return new Response(JSON.stringify({ error: error.message }), { status: 400 });
   }
   if (!data) {
@@ -93,6 +97,9 @@ export const DELETE: APIRoute = async ({ cookies, params }) => {
   const { error } = await dq;
 
   if (error) {
+    if (isPurchaseOrderTableMissing(error)) {
+      return new Response(JSON.stringify({ error: getPurchaseOrderTableMissingMessage() }), { status: 500 });
+    }
     return new Response(JSON.stringify({ error: error.message }), { status: 400 });
   }
 

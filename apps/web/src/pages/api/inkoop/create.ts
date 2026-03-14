@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { requireAdmin } from "../../../lib/auth";
+import { getPurchaseOrderTableMissingMessage, isPurchaseOrderTableMissing } from "../../../lib/inkoop";
 
 /**
  * POST /api/inkoop/create
@@ -84,6 +85,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     .single();
 
   if (error) {
+    if (isPurchaseOrderTableMissing(error)) {
+      return new Response(JSON.stringify({ error: getPurchaseOrderTableMissingMessage() }), { status: 500 });
+    }
     return new Response(JSON.stringify({ error: error.message }), { status: 400 });
   }
 

@@ -1,6 +1,7 @@
 ---
 import DashboardLayout from "../../../../../layouts/DashboardLayout.astro";
 import { requireAdmin } from "../../../../../lib/auth";
+import { getPurchaseOrderTableMissingMessage, isPurchaseOrderTableMissing } from "../../../../../lib/inkoop";
 
 const auth = await requireAdmin(Astro.cookies);
 if (!auth) return Astro.redirect("/signin");
@@ -23,7 +24,7 @@ const currentSeason = seasonParam
   : activeSeason;
 
 // Alle inkoopregels voor dit seizoen
-const { data: lines } = await supabase
+const { data: lines, error: linesError } = await supabase
   .from("purchase_order_lines")
   .select("*")
   .eq("project_id", project_id ?? "")
@@ -101,6 +102,9 @@ function calcLine(r: any): Line {
 }
 
 const allLines: Line[] = (lines ?? []).map(calcLine);
+const inkoopLoadError = isPurchaseOrderTableMissing(linesError)
+  ? getPurchaseOrderTableMissingMessage()
+  : linesError?.message ?? null;
 
 // Groepeer per DOEL voor tabs
 const byDoel: Record<string, Line[]> = {};
@@ -202,7 +206,12 @@ for (const l of allLines) {
     </div>
   </div>
 
-  <!-- Tabs -->
+  {inkoopLoadError && (
+    <div class="form-error" style="margin-bottom:1rem; display:block">
+      {inkoopLoadError}
+    </div>
+  )}
+
   <div class="tabs">
     <button class="tab active" data-tab="totaal" id="tab-totaal">
       {`Totaal (${allLines.length})`}
@@ -214,11 +223,10 @@ for (const l of allLines) {
     ))}
   </div>
 
-  <!-- Tab: Totaal -->
   <div class="tab-panel" id="panel-totaal">
     {allLines.length === 0 ? (
       <div class="empty-state">
-        <strong>Nog geen inkoopregels voor {currentSeason?.label ?? "dit seizoen"}.</strong>
+        <span class="empty-title">Nog geen inkoopregels voor {currentSeason?.label ?? "dit seizoen"}.</span>
         <br /><br />
         Klik op '+ Nieuwe inkooporder' om te beginnen.
       </div>
@@ -279,10 +287,10 @@ for (const l of allLines) {
           </tbody>
           <tfoot>
             <tr class="totals-row">
-              <td colspan="11"><strong>Totaal</strong></td>
-              <td class="num-col"><strong>{grandTotals.aantal.toLocaleString("nl")}</strong></td>
+              <td colspan="11"><span class="totals-label">Totaal</span></td>
+              <td class="num-col"><span class="totals-label">{grandTotals.aantal.toLocaleString("nl")}</span></td>
               <td class={"num-col marge-col " + (grandTotals.totale_marge < 0 ? "neg-cell" : "")}>
-                <strong>{fmtEur(grandTotals.totale_marge)}</strong>
+                <span class="totals-label">{fmtEur(grandTotals.totale_marge)}</span>
               </td>
               <td></td>
             </tr>
@@ -292,83 +300,83 @@ for (const l of allLines) {
     )}
   </div>
 
-  <!-- Tabs per DOEL -->
-  {doelMeta.map((m) => (
-    <div class="tab-panel" id={m.panelId} style="display:none">
-        {m.rows.length === 0 ? (
-          <div class="empty-state">
-            Nog geen inkoopregels voor <strong>{m.doel}</strong>.
-          </div>
-        ) : (
-          <div class="table-wrapper">
-            <table class="ink-table">
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Leverancier</th>
-                  <th>Categorie</th>
-                  <th>Product</th>
-                  <th>Kleur</th>
-                  <th>Week</th>
-                  <th class="num-col">Inkoop</th>
-                  <th class="num-col">Kostprijs</th>
-                  <th class="num-col">VK excl</th>
-                  <th class="num-col">Marge p.s.</th>
-                  <th class="num-col">Aantal</th>
-                  <th class="num-col">Totale marge</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {m.rows.map((row) => (
-                  <tr class="ink-row" data-id={row.id}>
-                    <td><span class={"status-badge status-" + row.status}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
-                    <td class="lev-cell">{row.leverancier || "—"}</td>
-                    <td class="code-cell">{row.categorie_code}</td>
-                    <td class="naam-cell">{row.product_naam || "—"}</td>
-                    <td>
-                      {row.label_kleur && (
-                        <span>
-                          <span style={colorDotStyle(row.label_kleur)}></span>
-                          {row.label_kleur}
-                        </span>
-                      )}
-                    </td>
-                    <td class="week-cell">{row.levering_week || "—"}</td>
-                    <td class="num-col">{fmtEur(row.inkoop_excl)}</td>
-                    <td class="num-col">{fmtEur(row.kostprijs)}</td>
-                    <td class="num-col">{fmtEur(row.verkoop_excl)}</td>
-                    <td class={"num-col " + (row.marge_per_stuk < 0 ? "neg-cell" : "pos-cell")}>
-                      {fmtEur(row.marge_per_stuk)}
-                    </td>
-                    <td class="num-col">{row.aantal.toLocaleString("nl")}</td>
-                    <td class={"num-col marge-col " + (row.totale_marge < 0 ? "neg-cell" : "")}>
-                      {fmtEur(row.totale_marge)}
-                    </td>
-                    <td class="actions-col">
-                      <button class="btn-edit" data-id={row.id} title="Bewerken">✎</button>
-                      <button class="btn-del"  data-id={row.id} title="Verwijderen">✕</button>
-                    </td>
+  <div class="doel-panels">
+    {doelMeta.map((m) => (
+      <div class="tab-panel" id={m.panelId} style="display:none">
+          {m.rows.length === 0 ? (
+            <div class="empty-state">
+              Nog geen inkoopregels voor <span class="totals-label">{m.doel}</span>.
+            </div>
+          ) : (
+            <div class="table-wrapper">
+              <table class="ink-table">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Leverancier</th>
+                    <th>Categorie</th>
+                    <th>Product</th>
+                    <th>Kleur</th>
+                    <th>Week</th>
+                    <th class="num-col">Inkoop</th>
+                    <th class="num-col">Kostprijs</th>
+                    <th class="num-col">VK excl</th>
+                    <th class="num-col">Marge p.s.</th>
+                    <th class="num-col">Aantal</th>
+                    <th class="num-col">Totale marge</th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr class="totals-row">
-                  <td colspan="10"><strong>Totaal {m.doel}</strong></td>
-                  <td class="num-col"><strong>{m.totals.aantal.toLocaleString("nl")}</strong></td>
-                  <td class={"num-col marge-col " + (m.totals.totale_marge < 0 ? "neg-cell" : "")}>
-                    <strong>{fmtEur(m.totals.totale_marge)}</strong>
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </div>
-  ))}
+                </thead>
+                <tbody>
+                  {m.rows.map((row) => (
+                    <tr class="ink-row" data-id={row.id}>
+                      <td><span class={"status-badge status-" + row.status}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
+                      <td class="lev-cell">{row.leverancier || "—"}</td>
+                      <td class="code-cell">{row.categorie_code}</td>
+                      <td class="naam-cell">{row.product_naam || "—"}</td>
+                      <td>
+                        {row.label_kleur && (
+                          <span>
+                            <span style={colorDotStyle(row.label_kleur)}></span>
+                            {row.label_kleur}
+                          </span>
+                        )}
+                      </td>
+                      <td class="week-cell">{row.levering_week || "—"}</td>
+                      <td class="num-col">{fmtEur(row.inkoop_excl)}</td>
+                      <td class="num-col">{fmtEur(row.kostprijs)}</td>
+                      <td class="num-col">{fmtEur(row.verkoop_excl)}</td>
+                      <td class={"num-col " + (row.marge_per_stuk < 0 ? "neg-cell" : "pos-cell")}>
+                        {fmtEur(row.marge_per_stuk)}
+                      </td>
+                      <td class="num-col">{row.aantal.toLocaleString("nl")}</td>
+                      <td class={"num-col marge-col " + (row.totale_marge < 0 ? "neg-cell" : "")}>
+                        {fmtEur(row.totale_marge)}
+                      </td>
+                      <td class="actions-col">
+                        <button class="btn-edit" data-id={row.id} title="Bewerken">✎</button>
+                        <button class="btn-del"  data-id={row.id} title="Verwijderen">✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr class="totals-row">
+                    <td colspan="10"><span class="totals-label">Totaal {m.doel}</span></td>
+                    <td class="num-col"><span class="totals-label">{m.totals.aantal.toLocaleString("nl")}</span></td>
+                    <td class={"num-col marge-col " + (m.totals.totale_marge < 0 ? "neg-cell" : "")}>
+                      <span class="totals-label">{fmtEur(m.totals.totale_marge)}</span>
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
+    ))}
+  </div>
 
-  <!-- Modal: nieuwe / bewerk inkooporder -->
   <div class="modal-overlay" id="modalInkoop" style="display:none">
     <div class="modal">
       <div class="modal-header">
@@ -523,7 +531,6 @@ for (const l of allLines) {
     </div>
   </div>
 
-  <!-- Rij-data voor edit-modal via set:text (veilig, geen define:vars) -->
   <div id="inkoop-row-data" style="display:none" aria-hidden="true" set:text={JSON.stringify(rowDataMap)}></div>
 
   <script is:inline>
@@ -703,6 +710,7 @@ for (const l of allLines) {
   .tab:hover  { color: #f9fafb; }
 
   .empty-state { text-align: center; padding: 4rem 2rem; color: #6b7280; line-height: 1.8; }
+  .empty-title { display: inline-block; font-weight: 700; color: #d1d5db; }
   .muted { color: #4b5563; }
 
   /* Table */
@@ -727,6 +735,7 @@ for (const l of allLines) {
   .actions-col { white-space: nowrap; text-align: right; }
 
   .totals-row td { border-top: 2px solid #374151; border-bottom: none; background: #1f2937; }
+  .totals-label { font-weight: 700; color: inherit; }
 
   /* Status badges */
   .status-badge {
