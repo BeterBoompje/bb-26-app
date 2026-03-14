@@ -203,9 +203,9 @@ for (const l of allLines) {
     <button class="tab active" data-tab="totaal" id="tab-totaal">
       Totaal ({allLines.length})
     </button>
-    {doelMeta.map(({ doel, cnt, tabId, panelId }) => (
-      <button class="tab" data-tab={doel} data-panel={panelId} id={tabId}>
-        {doel.split("|")[0].trim()} ({cnt})
+    {doelMeta.map((m) => (
+      <button class="tab" id={m.tabId}>
+        {m.doel.split("|")[0].trim()} ({m.cnt})
       </button>
     ))}
   </div>
@@ -233,7 +233,7 @@ for (const l of allLines) {
               <th class="num-col">Inkoop</th>
               <th class="num-col">Kostprijs</th>
               <th class="num-col">VK excl</th>
-              <th class="num-col">Marge/stuk</th>
+              <th class="num-col">Marge p.s.</th>
               <th class="num-col">Aantal</th>
               <th class="num-col">Totale marge</th>
               <th></th>
@@ -289,11 +289,11 @@ for (const l of allLines) {
   </div>
 
   <!-- Tabs per DOEL -->
-  {doelMeta.map(({ doel, panelId, rows, totals: t }) => (
-    <div class="tab-panel" id={panelId} style="display:none">
-        {rows.length === 0 ? (
+  {doelMeta.map((m) => (
+    <div class="tab-panel" id={m.panelId} style="display:none">
+        {m.rows.length === 0 ? (
           <div class="empty-state">
-            Nog geen inkoopregels voor <strong>{doel}</strong>.
+            Nog geen inkoopregels voor <strong>{m.doel}</strong>.
           </div>
         ) : (
           <div class="table-wrapper">
@@ -309,14 +309,14 @@ for (const l of allLines) {
                   <th class="num-col">Inkoop</th>
                   <th class="num-col">Kostprijs</th>
                   <th class="num-col">VK excl</th>
-                  <th class="num-col">Marge/stuk</th>
+                  <th class="num-col">Marge p.s.</th>
                   <th class="num-col">Aantal</th>
                   <th class="num-col">Totale marge</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
+                {m.rows.map((row) => (
                   <tr class="ink-row" data-id={row.id}>
                     <td><span class={"status-badge status-" + row.status}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
                     <td class="lev-cell">{row.leverancier || <span class="muted">—</span>}</td>
@@ -350,10 +350,10 @@ for (const l of allLines) {
               </tbody>
               <tfoot>
                 <tr class="totals-row">
-                  <td colspan="10"><strong>Totaal {doel}</strong></td>
-                  <td class="num-col"><strong>{t.aantal.toLocaleString("nl")}</strong></td>
-                  <td class={"num-col marge-col " + (t.totale_marge < 0 ? "neg-cell" : "")}>
-                    <strong>{fmtEur(t.totale_marge)}</strong>
+                  <td colspan="10"><strong>Totaal {m.doel}</strong></td>
+                  <td class="num-col"><strong>{m.totals.aantal.toLocaleString("nl")}</strong></td>
+                  <td class={"num-col marge-col " + (m.totals.totale_marge < 0 ? "neg-cell" : "")}>
+                    <strong>{fmtEur(m.totals.totale_marge)}</strong>
                   </td>
                   <td></td>
                 </tr>
@@ -519,25 +519,29 @@ for (const l of allLines) {
     </div>
   </div>
 
-  <script is:inline define:vars={{ rowDataMap }}>
+  <!-- Rij-data voor edit-modal via set:text (veilig, geen define:vars) -->
+  <div id="inkoop-row-data" style="display:none" aria-hidden="true" set:text={JSON.stringify(rowDataMap)}></div>
+
+  <script is:inline>
+    // Rij-data inladen vanuit verborgen div
+    var rowDataMap = JSON.parse(document.getElementById("inkoop-row-data").textContent || "{}");
+
     // ── Tab switching ──────────────────────────────────────────
+    // Tab-ID's: "tab-totaal", "tab-randijk--bb-pickups", etc.
+    // Panel-ID's: "panel-totaal", "panel-randijk--bb-pickups", etc.
     var allTabs    = document.querySelectorAll(".tab");
     var allPanels  = document.querySelectorAll(".tab-panel");
 
     allTabs.forEach(function(tab) {
       tab.addEventListener("click", function() {
-        var target = tab.getAttribute("data-tab");
         allTabs.forEach(function(t) { t.classList.remove("active"); });
         allPanels.forEach(function(p) { p.style.display = "none"; });
         tab.classList.add("active");
 
-        if (target === "totaal") {
-          document.getElementById("panel-totaal").style.display = "block";
-        } else {
-          var panelId = tab.getAttribute("data-panel") || "";
-          var panel = document.getElementById(panelId);
-          if (panel) panel.style.display = "block";
-        }
+        // Panel-ID afleiden van tab-ID: "tab-xxx" → "panel-xxx"
+        var panelId = tab.id.replace(/^tab-/, "panel-");
+        var panel = document.getElementById(panelId);
+        if (panel) panel.style.display = "block";
       });
     });
 
