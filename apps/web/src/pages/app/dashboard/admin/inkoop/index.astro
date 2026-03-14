@@ -144,21 +144,37 @@ function colorDotStyle(kleur: string | null): string {
   return `display:inline-block;width:0.65rem;height:0.65rem;border-radius:50%;background:${hex};margin-right:0.35rem;vertical-align:middle;`;
 }
 
-// Serialize DB-velden voor edit-modal (geen computed fields)
-function rowJson(row: Line): string {
-  return JSON.stringify({
-    id: row.id, doel: row.doel, leverancier: row.leverancier,
-    levering_week: row.levering_week, status: row.status,
-    categorie_code: row.categorie_code, product_code: (row as any).product_code,
-    product_naam: row.product_naam, label_kleur: row.label_kleur,
-    bb_wensen: (row as any).bb_wensen, sku: row.sku,
-    bestemming: row.bestemming, leverings_locatie: (row as any).leverings_locatie,
-    inkoop_excl: row.inkoop_excl, fulfillment_excl: row.fulfillment_excl,
-    verzend_excl: row.verzend_excl, afdracht_excl: row.afdracht_excl,
-    green_return: row.green_return, handelsprijs: row.handelsprijs,
-    verkoop_incl: row.verkoop_incl, verkoop_excl: row.verkoop_excl,
-    aantal: row.aantal, opmerkingen: row.opmerkingen,
-  });
+// Slug-helper — regex HIER in frontmatter, NIET in JSX-template
+function doelSlug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+// Voorberekend per DOEL: tabId, panelId, rows, totals
+const doelMeta = DOELEN.map((doel) => ({
+  doel,
+  cnt:     (byDoel[doel] ?? []).length,
+  tabId:   "tab-"   + doelSlug(doel),
+  panelId: "panel-" + doelSlug(doel),
+  rows:    byDoel[doel] ?? [],
+  totals:  totalsFor(byDoel[doel] ?? []),
+}));
+
+// Opzoektabel voor de edit-modal — doorgegeven via define:vars
+const rowDataMap: Record<string, Record<string, unknown>> = {};
+for (const l of allLines) {
+  rowDataMap[l.id] = {
+    id: l.id, doel: l.doel, leverancier: l.leverancier,
+    levering_week: l.levering_week, status: l.status,
+    categorie_code: l.categorie_code, product_code: (l as any).product_code,
+    product_naam: l.product_naam, label_kleur: l.label_kleur,
+    bb_wensen: (l as any).bb_wensen, sku: l.sku,
+    bestemming: l.bestemming, leverings_locatie: (l as any).leverings_locatie,
+    inkoop_excl: l.inkoop_excl, fulfillment_excl: l.fulfillment_excl,
+    verzend_excl: l.verzend_excl, afdracht_excl: l.afdracht_excl,
+    green_return: l.green_return, handelsprijs: l.handelsprijs,
+    verkoop_incl: l.verkoop_incl, verkoop_excl: l.verkoop_excl,
+    aantal: l.aantal, opmerkingen: l.opmerkingen,
+  };
 }
 ---
 
@@ -187,15 +203,11 @@ function rowJson(row: Line): string {
     <button class="tab active" data-tab="totaal" id="tab-totaal">
       Totaal ({allLines.length})
     </button>
-    {DOELEN.map((doel) => {
-      const cnt = (byDoel[doel] ?? []).length;
-      const tabId = "tab-" + doel.replace(/[^a-z0-9]/gi, "-").toLowerCase();
-      return (
-        <button class="tab" data-tab={doel} id={tabId}>
-          {doel.split("|")[0].trim()} ({cnt})
-        </button>
-      );
-    })}
+    {doelMeta.map(({ doel, cnt, tabId, panelId }) => (
+      <button class="tab" data-tab={doel} data-panel={panelId} id={tabId}>
+        {doel.split("|")[0].trim()} ({cnt})
+      </button>
+    ))}
   </div>
 
   <!-- Tab: Totaal -->
@@ -229,7 +241,7 @@ function rowJson(row: Line): string {
           </thead>
           <tbody>
             {allLines.map((row) => (
-              <tr class="ink-row" data-id={row.id} data-json={rowJson(row)}>
+              <tr class="ink-row" data-id={row.id}>
                 <td><span class={"status-badge status-" + row.status}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
                 <td class="doel-cell">{row.doel.split("|")[0].trim()}</td>
                 <td class="lev-cell">{row.leverancier || <span class="muted">—</span>}</td>
@@ -277,12 +289,8 @@ function rowJson(row: Line): string {
   </div>
 
   <!-- Tabs per DOEL -->
-  {DOELEN.map((doel) => {
-    const rows = byDoel[doel] ?? [];
-    const t = totalsFor(rows);
-    const panelId = "panel-" + doel.replace(/[^a-z0-9]/gi, "-").toLowerCase();
-    return (
-      <div class="tab-panel" id={panelId} style="display:none">
+  {doelMeta.map(({ doel, panelId, rows, totals: t }) => (
+    <div class="tab-panel" id={panelId} style="display:none">
         {rows.length === 0 ? (
           <div class="empty-state">
             Nog geen inkoopregels voor <strong>{doel}</strong>.
@@ -309,7 +317,7 @@ function rowJson(row: Line): string {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr class="ink-row" data-id={row.id} data-json={rowJson(row)}>
+                  <tr class="ink-row" data-id={row.id}>
                     <td><span class={"status-badge status-" + row.status}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
                     <td class="lev-cell">{row.leverancier || <span class="muted">—</span>}</td>
                     <td class="code-cell">{row.categorie_code}</td>
@@ -354,8 +362,7 @@ function rowJson(row: Line): string {
           </div>
         )}
       </div>
-    );
-  })}
+  ))}
 
   <!-- Modal: nieuwe / bewerk inkooporder -->
   <div class="modal-overlay" id="modalInkoop" style="display:none">
@@ -512,7 +519,7 @@ function rowJson(row: Line): string {
     </div>
   </div>
 
-  <script is:inline>
+  <script is:inline define:vars={{ rowDataMap }}>
     // ── Tab switching ──────────────────────────────────────────
     var allTabs    = document.querySelectorAll(".tab");
     var allPanels  = document.querySelectorAll(".tab-panel");
@@ -527,7 +534,7 @@ function rowJson(row: Line): string {
         if (target === "totaal") {
           document.getElementById("panel-totaal").style.display = "block";
         } else {
-          var panelId = "panel-" + target.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+          var panelId = tab.getAttribute("data-panel") || "";
           var panel = document.getElementById(panelId);
           if (panel) panel.style.display = "block";
         }
@@ -586,12 +593,11 @@ function rowJson(row: Line): string {
     document.getElementById("btnModalCancel").addEventListener("click", closeModal);
     modal.addEventListener("click", function(e) { if (e.target === modal) closeModal(); });
 
-    // Bewerk-knoppen — lees de row-data uit het data-json attribuut
+    // Bewerk-knoppen — opzoeken via server-side rowDataMap (define:vars)
     document.querySelectorAll(".btn-edit").forEach(function(btn) {
       btn.addEventListener("click", function() {
-        var row  = btn.closest("tr");
-        var json = row.getAttribute("data-json");
-        if (json) openModal(JSON.parse(json));
+        var id = btn.getAttribute("data-id");
+        openModal(rowDataMap[id] || null);
       });
     });
 
