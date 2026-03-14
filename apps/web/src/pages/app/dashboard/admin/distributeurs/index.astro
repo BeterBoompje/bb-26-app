@@ -158,7 +158,7 @@ function calcBeschikbaar(dist: any): number {
   </div>
 </DashboardLayout>
 
-<script define:vars={{ project_id }}>
+<script>
   const btnNieuw = document.getElementById("btnNieuw");
   const modal = document.getElementById("modalNieuw");
   const btnClose = document.getElementById("btnClose");
@@ -179,8 +179,8 @@ function calcBeschikbaar(dist: any): number {
   form.addEventListener("submit", async function(e) {
     e.preventDefault();
     formError.style.display = "none";
+    // project_id wordt server-side bepaald — stuur alleen de formuliervelden
     const data = Object.fromEntries(new FormData(form));
-    data.project_id = project_id;
     const btn = form.querySelector("[type=submit]");
     btn.disabled = true;
     btn.textContent = "Opslaan…";

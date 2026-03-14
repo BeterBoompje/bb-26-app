@@ -57,7 +57,24 @@ if (currentSeason) {
   lines = data ?? [];
 }
 
-// Bereken beschikbaar + restant per rij (verkocht=0 totdat Shopify webhook live is)
+// Product varianten voor dropdown (gesorteerd op sort_order)
+const { data: variants } = await supabase
+  .from("product_variants")
+  .select("id, sku_pattern, display_label, color_hex, color_name, has_rootball, size_from_cm, size_to_cm, sort_order")
+  .eq("project_id", dist.project_id)
+  .order("sort_order");
+
+// Welke codes zijn al aangemaakt voor dit seizoen/distributor?
+const usedCodes = new Set(lines.map((l: any) => l.category_code));
+const availableVariants = (variants ?? []).filter((v: any) => !usedCodes.has(v.sku_pattern));
+
+// Maak een snel opzoektabel: code → variant info (voor bestaande rijen)
+const variantByCode: Record<string, any> = {};
+for (const v of (variants ?? [])) {
+  variantByCode[v.sku_pattern] = v;
+}
+
+// Bereken beschikbaar + restant per rij
 function calcRow(line: any) {
   const extra = (line.inventory_adjustments ?? []).reduce(
     (s: number, a: any) => s + (a.quantity ?? 0),
@@ -65,6 +82,12 @@ function calcRow(line: any) {
   );
   const beschikbaar = line.voorraad + line.ingekocht + extra;
   return { extra, beschikbaar, restant: beschikbaar };
+}
+
+// Kleur dot HTML
+function colorDot(hex: string | undefined): string {
+  if (!hex) return "";
+  return `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${hex};border:1px solid rgba(255,255,255,0.2);margin-right:6px;flex-shrink:0"></span>`;
 }
 ---
 
@@ -83,14 +106,10 @@ function calcRow(line: any) {
       {dist.code && <span class="dist-code">{dist.code}</span>}
     </div>
     <div class="header-actions">
-      <!-- Seizoen selector -->
       <form method="get" id="seasonForm">
         <select name="season_id" class="season-select" onchange="this.form.submit()">
           {(seasons ?? []).map((s: any) => (
-            <option
-              value={s.id}
-              {...(s.id === currentSeason?.id ? { selected: true } : {})}
-            >
+            <option value={s.id} {...(s.id === currentSeason?.id ? { selected: true } : {})}>
               {s.label}{s.is_active ? " (actief)" : ""}
             </option>
           ))}
@@ -122,49 +141,87 @@ function calcRow(line: any) {
     {!dist.is_active && <div class="badge-inactive">Inactief</div>}
   </div>
 
-  <!-- Geen seizoen beschikbaar -->
   {!currentSeason && (
     <div class="alert-info">Geen actief seizoen gevonden.</div>
   )}
 
   {currentSeason && (
     <div>
-      <!-- Tabel -->
+      <!-- Tabel header -->
       <div class="table-header">
         <h2 class="section-title">Voorraad — {currentSeason.label}</h2>
         <div class="table-actions">
-          <button class="btn-secondary" id="btnAddRow">+ Rij toevoegen</button>
+          {availableVariants.length > 0
+            ? <button class="btn-secondary" id="btnAddRow">+ Rij toevoegen</button>
+            : <span class="all-added-hint">Alle categorieën toegevoegd ✓</span>
+          }
           <button class="btn-primary" id="btnSave">Opslaan</button>
         </div>
       </div>
 
       <div id="saveMsg" class="save-msg" style="display:none"></div>
 
+      <!-- Inline "Rij toevoegen" form -->
+      <div id="addRowForm" class="add-row-form" style="display:none">
+        <div class="add-row-inner">
+          <select id="variantSelect" class="variant-select">
+            {availableVariants.map((v: any) => (
+              <option
+                value={v.sku_pattern}
+                data-label={v.display_label}
+                data-color={v.color_hex ?? ""}
+              >
+                {v.display_label} ({v.sku_pattern})
+              </option>
+            ))}
+          </select>
+          <div class="add-row-nums">
+            <div class="num-field">
+              <label>Voorraad</label>
+              <input type="number" id="addVoorraad" value="0" min="0" class="num-input-sm" />
+            </div>
+            <div class="num-field">
+              <label>Ingekocht</label>
+              <input type="number" id="addIngekocht" value="0" class="num-input-sm" />
+            </div>
+          </div>
+          <div class="add-row-btns">
+            <button class="btn-primary" id="btnConfirmAdd">Toevoegen</button>
+            <button class="btn-cancel" id="btnCancelAdd">Annuleren</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabel -->
       <div class="table-wrapper">
         <table class="inv-table" id="invTable">
           <thead>
             <tr>
-              <th>Categorie</th>
-              <th>Omschrijving</th>
+              <th class="product-col">Product</th>
               <th class="num-col">Voorraad</th>
               <th class="num-col">Ingekocht</th>
               <th class="adj-col">Aanpassingen</th>
               <th class="num-col total-col">Beschikbaar</th>
-              <th class="num-col">Verkocht</th>
+              <th class="num-col muted-col">Verkocht</th>
               <th class="num-col">Restant</th>
               <th class="act-col"></th>
             </tr>
           </thead>
           <tbody id="invBody">
             {lines.map((line: any) => {
-              const { extra, beschikbaar, restant } = calcRow(line);
+              const { beschikbaar, restant } = calcRow(line);
+              const v = variantByCode[line.category_code];
+              const colorHex = v?.color_hex ?? "";
               return (
-                <tr class="inv-row" data-id={line.id}>
-                  <td>
-                    <input class="cell-input code-input" value={line.category_code} data-field="category_code" />
-                  </td>
-                  <td>
-                    <input class="cell-input" value={line.display_label ?? ""} data-field="display_label" placeholder="Omschrijving" />
+                <tr class="inv-row" data-id={line.id} data-code={line.category_code} data-label={line.display_label ?? line.category_code}>
+                  <td class="product-col">
+                    <div class="product-cell">
+                      {colorHex && <span class="color-dot" style={"background:" + colorHex}></span>}
+                      <div>
+                        <div class="product-name">{line.display_label ?? line.category_code}</div>
+                        <div class="product-code">{line.category_code}</div>
+                      </div>
+                    </div>
                   </td>
                   <td class="num-col">
                     <input class="cell-input num-input" type="number" value={line.voorraad} data-field="voorraad" min="0" />
@@ -195,10 +252,12 @@ function calcRow(line: any) {
         </table>
       </div>
 
-      <!-- Lege staat -->
       {lines.length === 0 && (
-        <div class="empty-table">
-          Nog geen voorraadregels. Klik op "+ Rij toevoegen" om te beginnen.
+        <div class="empty-table" id="emptyMsg">
+          {(variants ?? []).length === 0
+            ? <>Geen productcategorieën gevonden. <a href="/app/dashboard/admin/rapportage" class="link">Voeg product varianten toe via de Supabase SQL Editor</a>.</>
+            : <>Nog geen voorraadregels voor dit seizoen. Klik op <strong>"+ Rij toevoegen"</strong> om te beginnen.</>
+          }
         </div>
       )}
     </div>
@@ -235,53 +294,127 @@ function calcRow(line: any) {
       </form>
     </div>
   </div>
+
+  <script is:inline>
+    // Configuratie vanuit Astro via data-attribuut (geen define:vars nodig)
+  </script>
 </DashboardLayout>
 
 <script define:vars={{ distributorId: dist.id, seasonId: currentSeason?.id ?? null }}>
-  // ── Nieuwe rij toevoegen ───────────────────────────────────────
-  document.getElementById("btnAddRow").addEventListener("click", function() {
-    const tbody = document.getElementById("invBody");
-    const rowCount = tbody.querySelectorAll(".inv-row").length;
-    const tr = document.createElement("tr");
+  // ── Inline "Rij toevoegen" form ────────────────────────────────
+  var addForm = document.getElementById("addRowForm");
+  var btnAdd = document.getElementById("btnAddRow");
+
+  if (btnAdd) {
+    btnAdd.addEventListener("click", function() {
+      addForm.style.display = "block";
+      btnAdd.style.display = "none";
+      document.getElementById("addVoorraad").value = "0";
+      document.getElementById("addIngekocht").value = "0";
+    });
+  }
+
+  document.getElementById("btnCancelAdd") && document.getElementById("btnCancelAdd").addEventListener("click", function() {
+    addForm.style.display = "none";
+    if (btnAdd) btnAdd.style.display = "";
+  });
+
+  document.getElementById("btnConfirmAdd") && document.getElementById("btnConfirmAdd").addEventListener("click", function() {
+    var sel = document.getElementById("variantSelect");
+    if (!sel || !sel.value) return;
+    var opt = sel.options[sel.selectedIndex];
+    var code = opt.value;
+    var label = opt.dataset.label || code;
+    var color = opt.dataset.color || "";
+    var voorraad = parseInt(document.getElementById("addVoorraad").value) || 0;
+    var ingekocht = parseInt(document.getElementById("addIngekocht").value) || 0;
+    var beschikbaar = voorraad + ingekocht;
+
+    // Rij aanmaken
+    var tbody = document.getElementById("invBody");
+    var tr = document.createElement("tr");
     tr.className = "inv-row";
     tr.dataset.id = "";
-    tr.innerHTML = [
-      '<td><input class="cell-input code-input" data-field="category_code" placeholder="bijv. MET-100-125" /></td>',
-      '<td><input class="cell-input" data-field="display_label" placeholder="Omschrijving" /></td>',
-      '<td class="num-col"><input class="cell-input num-input" type="number" value="0" data-field="voorraad" min="0" /></td>',
-      '<td class="num-col"><input class="cell-input num-input" type="number" value="0" data-field="ingekocht" /></td>',
-      '<td class="adj-col"><div class="adj-badges"><button class="btn-add-adj" title="Aanpassing toevoegen" disabled>+</button></div></td>',
-      '<td class="num-col total-col beschikbaar-cell">0</td>',
-      '<td class="num-col muted-cell">0</td>',
-      '<td class="num-col restant-cell">0</td>',
-      '<td class="act-col"><button class="btn-del-row" title="Rij verwijderen">✕</button></td>',
-    ].join("");
+    tr.dataset.code = code;
+    tr.dataset.label = label;
+
+    var colorDot = color
+      ? '<span class="color-dot" style="background:' + color + '"></span>'
+      : "";
+
+    tr.innerHTML =
+      '<td class="product-col"><div class="product-cell">' + colorDot +
+        '<div><div class="product-name">' + label + '</div>' +
+        '<div class="product-code">' + code + '</div></div></div></td>' +
+      '<td class="num-col"><input class="cell-input num-input" type="number" value="' + voorraad + '" data-field="voorraad" min="0" /></td>' +
+      '<td class="num-col"><input class="cell-input num-input" type="number" value="' + ingekocht + '" data-field="ingekocht" /></td>' +
+      '<td class="adj-col"><div class="adj-badges"><button class="btn-add-adj" title="Sla eerst op" disabled>+</button></div></td>' +
+      '<td class="num-col total-col beschikbaar-cell">' + beschikbaar.toLocaleString("nl") + '</td>' +
+      '<td class="num-col muted-cell">0</td>' +
+      '<td class="num-col restant-cell">' + beschikbaar.toLocaleString("nl") + '</td>' +
+      '<td class="act-col"><button class="btn-del-row" title="Rij verwijderen">✕</button></td>';
+
     tbody.appendChild(tr);
     bindRowEvents(tr);
-    tr.querySelector(".code-input").focus();
-    document.getElementById("invTable").style.removeProperty("display");
-    document.querySelector(".empty-table") && (document.querySelector(".empty-table").style.display = "none");
+
+    // Verwijder de code uit de dropdown
+    opt.remove();
+    if (sel.options.length === 0) {
+      addForm.style.display = "none";
+      if (btnAdd) {
+        btnAdd.textContent = "Alle categorieën toegevoegd ✓";
+        btnAdd.disabled = true;
+        btnAdd.className = "all-added-hint";
+      }
+    } else {
+      // Reset en verberg form
+      addForm.style.display = "none";
+      if (btnAdd) btnAdd.style.display = "";
+    }
+
+    // Lege staat verbergen
+    var emptyMsg = document.getElementById("emptyMsg");
+    if (emptyMsg) emptyMsg.style.display = "none";
   });
 
   // ── Rij verwijderen ───────────────────────────────────────────
   function bindDelBtn(row) {
-    row.querySelector(".btn-del-row").addEventListener("click", function() {
+    var delBtn = row.querySelector(".btn-del-row");
+    if (!delBtn) return;
+    delBtn.addEventListener("click", function() {
       if (confirm("Rij verwijderen? Niet-opgeslagen wijzigingen gaan verloren.")) {
+        // Categorie terug toevoegen aan dropdown
+        var code = row.dataset.code;
+        var label = row.dataset.label;
+        var sel = document.getElementById("variantSelect");
+        if (sel && code) {
+          var newOpt = document.createElement("option");
+          newOpt.value = code;
+          newOpt.dataset.label = label;
+          newOpt.textContent = label + " (" + code + ")";
+          sel.appendChild(newOpt);
+          if (btnAdd) {
+            btnAdd.style.display = "";
+            btnAdd.disabled = false;
+            btnAdd.textContent = "+ Rij toevoegen";
+            btnAdd.className = "btn-secondary";
+          }
+        }
         row.remove();
       }
     });
   }
 
-  // ── Live berekening beschikbaar / restant ──────────────────────
+  // ── Live berekening beschikbaar / restant ─────────────────────
   function recalcRow(row) {
-    const voorraad = parseInt(row.querySelector("[data-field='voorraad']").value) || 0;
-    const ingekocht = parseInt(row.querySelector("[data-field='ingekocht']").value) || 0;
-    let extra = 0;
+    var voorraad = parseInt(row.querySelector("[data-field='voorraad']").value) || 0;
+    var ingekocht = parseInt(row.querySelector("[data-field='ingekocht']").value) || 0;
+    var extra = 0;
     row.querySelectorAll(".adj-badge").forEach(function(badge) {
-      const m = badge.textContent.match(/([+-]?\d+)$/);
+      var m = badge.textContent.match(/([+-]?\d+)$/);
       if (m) extra += parseInt(m[1]);
     });
-    const beschikbaar = voorraad + ingekocht + extra;
+    var beschikbaar = voorraad + ingekocht + extra;
     row.querySelector(".beschikbaar-cell").textContent = beschikbaar.toLocaleString("nl");
     row.querySelector(".restant-cell").textContent = beschikbaar.toLocaleString("nl");
   }
@@ -291,10 +424,10 @@ function calcRow(line: any) {
     row.querySelectorAll(".num-input").forEach(function(input) {
       input.addEventListener("input", function() { recalcRow(row); });
     });
-    const adjBtn = row.querySelector(".btn-add-adj");
+    var adjBtn = row.querySelector(".btn-add-adj");
     if (adjBtn) {
       adjBtn.addEventListener("click", function() {
-        const lineId = adjBtn.dataset.lineId || "";
+        var lineId = adjBtn.dataset.lineId || "";
         if (!lineId) {
           alert("Sla de rij eerst op voordat je aanpassingen toevoegt.");
           return;
@@ -304,42 +437,32 @@ function calcRow(line: any) {
     }
   }
 
-  // Bind existing rows
+  // Bind bestaande rijen
   document.querySelectorAll(".inv-row").forEach(function(row) { bindRowEvents(row); });
 
   // ── Opslaan ───────────────────────────────────────────────────
   document.getElementById("btnSave").addEventListener("click", async function() {
-    const btn = this;
-    const msg = document.getElementById("saveMsg");
+    var btn = this;
+    var msg = document.getElementById("saveMsg");
     btn.disabled = true;
     btn.textContent = "Opslaan…";
     msg.style.display = "none";
 
-    const rows = document.querySelectorAll(".inv-row");
-    const lines = [];
-    let valid = true;
+    var rows = document.querySelectorAll(".inv-row");
+    var lines = [];
 
     rows.forEach(function(row) {
-      const code = row.querySelector("[data-field='category_code']").value.trim();
-      if (!code) { valid = false; return; }
+      var code = row.dataset.code || "";
+      if (!code) return;
       lines.push({
         id: row.dataset.id || undefined,
         category_code: code,
-        display_label: row.querySelector("[data-field='display_label']").value.trim() || null,
+        display_label: row.dataset.label || code,
         voorraad: parseInt(row.querySelector("[data-field='voorraad']").value) || 0,
         ingekocht: parseInt(row.querySelector("[data-field='ingekocht']").value) || 0,
         sort_order: lines.length,
       });
     });
-
-    if (!valid) {
-      msg.textContent = "Vul een categoriecode in voor alle rijen.";
-      msg.className = "save-msg save-err";
-      msg.style.display = "block";
-      btn.disabled = false;
-      btn.textContent = "Opslaan";
-      return;
-    }
 
     if (lines.length === 0) {
       msg.textContent = "Geen rijen om op te slaan.";
@@ -351,20 +474,19 @@ function calcRow(line: any) {
     }
 
     try {
-      const res = await fetch("/api/distributeurs/" + distributorId + "/save-inventory", {
+      var res = await fetch("/api/distributeurs/" + distributorId + "/save-inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ season_id: seasonId, lines }),
+        body: JSON.stringify({ season_id: seasonId, lines: lines }),
       });
-      const json = await res.json();
+      var json = await res.json();
       if (!res.ok) {
         msg.textContent = json.error || "Opslaan mislukt.";
         msg.className = "save-msg save-err";
       } else {
         msg.textContent = json.saved + " regel(s) opgeslagen.";
         msg.className = "save-msg save-ok";
-        // Reload om nieuwe IDs te laden
-        setTimeout(function() { window.location.reload(); }, 800);
+        setTimeout(function() { window.location.reload(); }, 700);
       }
     } catch (e) {
       msg.textContent = "Netwerkfout.";
@@ -377,22 +499,18 @@ function calcRow(line: any) {
   });
 
   // ── Aanpassingen modal ────────────────────────────────────────
-  var currentLineId = null;
-
   function openAdjModal(lineId) {
-    currentLineId = lineId;
     document.getElementById("adjLineId").value = lineId;
     document.getElementById("adjLabel").value = "";
     document.getElementById("adjQty").value = "";
     document.getElementById("adjNotes").value = "";
     document.getElementById("adjError").style.display = "none";
     document.getElementById("adjModal").style.display = "flex";
-    document.getElementById("adjLabel").focus();
+    setTimeout(function() { document.getElementById("adjLabel").focus(); }, 50);
   }
 
   function closeAdjModal() {
     document.getElementById("adjModal").style.display = "none";
-    currentLineId = null;
   }
 
   document.getElementById("adjClose").addEventListener("click", closeAdjModal);
@@ -403,24 +521,24 @@ function calcRow(line: any) {
 
   document.getElementById("adjForm").addEventListener("submit", async function(e) {
     e.preventDefault();
-    const lineId = document.getElementById("adjLineId").value;
-    const label = document.getElementById("adjLabel").value.trim();
-    const qty = parseInt(document.getElementById("adjQty").value);
-    const notes = document.getElementById("adjNotes").value.trim();
-    const errEl = document.getElementById("adjError");
-    const submitBtn = document.getElementById("adjSubmit");
+    var lineId = document.getElementById("adjLineId").value;
+    var label = document.getElementById("adjLabel").value.trim();
+    var qty = parseInt(document.getElementById("adjQty").value);
+    var notes = document.getElementById("adjNotes").value.trim();
+    var errEl = document.getElementById("adjError");
+    var submitBtn = document.getElementById("adjSubmit");
 
     errEl.style.display = "none";
     submitBtn.disabled = true;
     submitBtn.textContent = "Toevoegen…";
 
     try {
-      const res = await fetch("/api/distributeurs/" + distributorId + "/add-adjustment", {
+      var res = await fetch("/api/distributeurs/" + distributorId + "/add-adjustment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inventory_line_id: lineId, label, quantity: qty, notes: notes || null }),
+        body: JSON.stringify({ inventory_line_id: lineId, label: label, quantity: qty, notes: notes || null }),
       });
-      const json = await res.json();
+      var json = await res.json();
       if (!res.ok) {
         errEl.textContent = json.error || "Fout.";
         errEl.style.display = "block";
@@ -440,58 +558,30 @@ function calcRow(line: any) {
 
 <style>
   .breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8rem;
-    color: #6b7280;
-    margin-bottom: 1.25rem;
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.8rem; color: #6b7280; margin-bottom: 1.25rem;
   }
   .breadcrumb a { color: #9ca3af; text-decoration: none; }
   .breadcrumb a:hover { color: #f9fafb; }
 
   .page-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;
   }
-  .page-title {
-    font-size: 1.75rem;
-    font-weight: 800;
-    color: #f9fafb;
-    margin: 0 0 0.25rem;
-  }
+  .page-title { font-size: 1.75rem; font-weight: 800; color: #f9fafb; margin: 0 0 0.25rem; }
   .dist-code {
-    font-size: 0.8rem;
-    color: #6b7280;
-    font-family: monospace;
-    background: #1f2937;
-    padding: 0.15rem 0.5rem;
-    border-radius: 0.3rem;
+    font-size: 0.8rem; color: #6b7280; font-family: monospace;
+    background: #1f2937; padding: 0.15rem 0.5rem; border-radius: 0.3rem;
   }
   .header-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
   .season-select {
-    background: #1f2937;
-    border: 1px solid #374151;
-    border-radius: 0.4rem;
-    color: #f9fafb;
-    padding: 0.45rem 0.75rem;
-    font-size: 0.875rem;
-    cursor: pointer;
+    background: #1f2937; border: 1px solid #374151; border-radius: 0.4rem;
+    color: #f9fafb; padding: 0.45rem 0.75rem; font-size: 0.875rem; cursor: pointer;
   }
 
   .info-card {
-    background: #1f2937;
-    border: 1px solid #374151;
-    border-radius: 0.75rem;
-    padding: 1.25rem 1.5rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+    background: #1f2937; border: 1px solid #374151; border-radius: 0.75rem;
+    padding: 1.25rem 1.5rem; display: flex; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 2rem;
   }
   .info-item { display: flex; flex-direction: column; gap: 0.2rem; }
   .info-item--wide { flex: 1; min-width: 200px; }
@@ -499,218 +589,141 @@ function calcRow(line: any) {
   .info-val { font-size: 0.9rem; color: #f9fafb; }
   .info-link { color: #6366f1; text-decoration: none; }
   .info-link:hover { text-decoration: underline; }
-  .badge-inactive {
-    align-self: flex-start;
-    font-size: 0.7rem;
-    background: #374151;
-    color: #9ca3af;
-    padding: 0.2rem 0.6rem;
-    border-radius: 999px;
-  }
+  .badge-inactive { align-self: flex-start; font-size: 0.7rem; background: #374151; color: #9ca3af; padding: 0.2rem 0.6rem; border-radius: 999px; }
+  .alert-info { background: #1e1b4b; border: 1px solid #6366f133; color: #818cf8; padding: 1rem 1.25rem; border-radius: 0.5rem; }
 
-  .alert-info {
-    background: #1e1b4b;
-    border: 1px solid #6366f133;
-    color: #818cf8;
-    padding: 1rem 1.25rem;
-    border-radius: 0.5rem;
-  }
+  .section-title { font-size: 1.1rem; font-weight: 700; color: #f9fafb; margin: 0; }
+  .table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem; }
+  .table-actions { display: flex; gap: 0.75rem; align-items: center; }
+  .all-added-hint { font-size: 0.8rem; color: #10b981; }
 
-  .section-title {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #f9fafb;
-    margin: 0;
+  /* Inline toevoeg-form */
+  .add-row-form {
+    background: #1f2937; border: 1px solid #374151; border-radius: 0.5rem;
+    padding: 1rem 1.25rem; margin-bottom: 1rem;
   }
-  .table-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-    gap: 0.75rem;
+  .add-row-inner { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; }
+  .variant-select {
+    flex: 1; min-width: 220px; background: #111827; border: 1px solid #374151;
+    border-radius: 0.4rem; color: #f9fafb; padding: 0.5rem 0.75rem; font-size: 0.875rem;
   }
-  .table-actions { display: flex; gap: 0.75rem; }
+  .add-row-nums { display: flex; gap: 0.75rem; align-items: flex-end; }
+  .num-field { display: flex; flex-direction: column; gap: 0.25rem; }
+  .num-field label { font-size: 0.72rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.04em; }
+  .num-input-sm {
+    width: 90px; background: #111827; border: 1px solid #374151; border-radius: 0.4rem;
+    color: #f9fafb; padding: 0.45rem 0.6rem; font-size: 0.875rem; text-align: right;
+  }
+  .add-row-btns { display: flex; gap: 0.5rem; align-items: flex-end; }
+  .btn-cancel {
+    background: none; border: none; color: #6b7280; font-size: 0.85rem;
+    cursor: pointer; padding: 0.5rem 0.5rem;
+  }
+  .btn-cancel:hover { color: #f9fafb; }
 
-  .save-msg {
-    padding: 0.6rem 1rem;
-    border-radius: 0.4rem;
-    font-size: 0.875rem;
-    margin-bottom: 1rem;
-  }
+  .save-msg { padding: 0.6rem 1rem; border-radius: 0.4rem; font-size: 0.875rem; margin-bottom: 1rem; }
   .save-ok { background: #064e3b22; border: 1px solid #10b98133; color: #10b981; }
   .save-err { background: #7f1d1d22; border: 1px solid #ef444433; color: #ef4444; }
 
   .table-wrapper { overflow-x: auto; }
-
-  .inv-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-  }
+  .inv-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
   .inv-table th {
-    text-align: left;
-    padding: 0.6rem 0.75rem;
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #6b7280;
-    border-bottom: 1px solid #374151;
-    white-space: nowrap;
+    text-align: left; padding: 0.6rem 0.75rem; font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280;
+    border-bottom: 1px solid #374151; white-space: nowrap;
   }
-  .inv-table td {
-    padding: 0.4rem 0.5rem;
-    border-bottom: 1px solid #1f293788;
-    vertical-align: middle;
-  }
+  .inv-table td { padding: 0.5rem 0.5rem; border-bottom: 1px solid #1f293788; vertical-align: middle; }
   .inv-table tr:hover td { background: #1f293733; }
 
+  .product-col { min-width: 200px; }
   .num-col { text-align: right; width: 90px; }
-  .adj-col { min-width: 180px; }
-  .act-col { width: 40px; text-align: center; }
+  .adj-col { min-width: 160px; }
+  .act-col { width: 36px; text-align: center; }
   .total-col { color: #10b981; font-weight: 700; }
-  .muted-cell { color: #4b5563; }
+  .muted-col { color: #4b5563; }
+
+  .product-cell { display: flex; align-items: center; gap: 0; }
+  .color-dot {
+    display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.2); margin-right: 8px; flex-shrink: 0;
+  }
+  .product-name { font-weight: 600; color: #f9fafb; font-size: 0.875rem; }
+  .product-code { font-size: 0.72rem; color: #6b7280; font-family: monospace; margin-top: 1px; }
 
   .cell-input {
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 0.3rem;
-    padding: 0.3rem 0.4rem;
-    color: #f9fafb;
-    font-size: 0.875rem;
-    font-family: inherit;
-    width: 100%;
-    min-width: 0;
-    transition: border-color 0.1s, background 0.1s;
+    background: transparent; border: 1px solid transparent; border-radius: 0.3rem;
+    padding: 0.3rem 0.4rem; color: #f9fafb; font-size: 0.875rem; font-family: inherit;
+    width: 100%; min-width: 0; transition: border-color 0.1s, background 0.1s;
   }
   .cell-input:hover { border-color: #374151; background: #111827; }
   .cell-input:focus { border-color: #6366f1; background: #111827; outline: none; }
-  .code-input { font-family: monospace; font-size: 0.85rem; }
   .num-input { text-align: right; }
 
-  .adj-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.3rem;
-    align-items: center;
-  }
+  .adj-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
   .adj-badge {
-    font-size: 0.72rem;
-    padding: 0.15rem 0.45rem;
-    border-radius: 999px;
-    white-space: nowrap;
-    font-weight: 600;
+    font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px;
+    white-space: nowrap; font-weight: 600;
   }
   .adj-pos { background: #064e3b44; color: #10b981; border: 1px solid #10b98133; }
   .adj-neg { background: #7f1d1d44; color: #ef4444; border: 1px solid #ef444433; }
   .btn-add-adj {
-    background: #374151;
-    color: #9ca3af;
-    border: none;
-    border-radius: 999px;
-    width: 1.4rem;
-    height: 1.4rem;
-    font-size: 0.9rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    flex-shrink: 0;
+    background: #374151; color: #9ca3af; border: none; border-radius: 999px;
+    width: 1.4rem; height: 1.4rem; font-size: 0.9rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0;
   }
   .btn-add-adj:hover { background: #4b5563; color: #f9fafb; }
   .btn-add-adj:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  .btn-del-row {
-    background: none;
-    border: none;
-    color: #4b5563;
-    cursor: pointer;
-    font-size: 0.85rem;
-    padding: 0.2rem;
-  }
+  .btn-del-row { background: none; border: none; color: #4b5563; cursor: pointer; font-size: 0.85rem; padding: 0.2rem; }
   .btn-del-row:hover { color: #ef4444; }
 
+  .muted-cell { color: #4b5563; }
+  .beschikbaar-cell { color: #10b981; font-weight: 700; }
+
   .empty-table {
-    text-align: center;
-    padding: 3rem 2rem;
-    color: #6b7280;
-    font-size: 0.875rem;
-    border: 1px dashed #374151;
-    border-radius: 0.5rem;
+    text-align: center; padding: 3rem 2rem; color: #6b7280; font-size: 0.875rem;
+    border: 1px dashed #374151; border-radius: 0.5rem;
   }
+  .link { color: #6366f1; text-decoration: none; }
+  .link:hover { text-decoration: underline; }
 
   .btn-primary {
-    background: #10b981;
-    color: #fff;
-    border: none;
-    border-radius: 0.5rem;
-    padding: 0.5rem 1.1rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
+    background: #10b981; color: #fff; border: none; border-radius: 0.5rem;
+    padding: 0.5rem 1.1rem; font-size: 0.875rem; font-weight: 600; cursor: pointer;
   }
   .btn-primary:hover { background: #059669; }
   .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
   .btn-secondary {
-    background: #374151;
-    color: #f9fafb;
-    border: none;
-    border-radius: 0.5rem;
-    padding: 0.5rem 1.1rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
+    background: #374151; color: #f9fafb; border: none; border-radius: 0.5rem;
+    padding: 0.5rem 1.1rem; font-size: 0.875rem; font-weight: 600; cursor: pointer;
   }
   .btn-secondary:hover { background: #4b5563; }
 
   /* Modal */
   .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
   }
   .modal {
-    background: #1f2937;
-    border: 1px solid #374151;
-    border-radius: 0.75rem;
-    padding: 1.75rem;
-    width: 100%;
-    max-width: 420px;
+    background: #1f2937; border: 1px solid #374151; border-radius: 0.75rem;
+    padding: 1.75rem; width: 100%; max-width: 420px;
   }
-  .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1.25rem;
-  }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
   .modal-header h2 { font-size: 1.1rem; font-weight: 700; color: #f9fafb; margin: 0; }
   .modal-close { background: none; border: none; color: #9ca3af; font-size: 1.1rem; cursor: pointer; }
   .modal-form { display: flex; flex-direction: column; gap: 1rem; }
   .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
   .form-group label { font-size: 0.8rem; font-weight: 600; color: #9ca3af; }
   .form-group input {
-    background: #111827;
-    border: 1px solid #374151;
-    border-radius: 0.4rem;
-    padding: 0.5rem 0.75rem;
-    color: #f9fafb;
-    font-size: 0.9rem;
+    background: #111827; border: 1px solid #374151; border-radius: 0.4rem;
+    padding: 0.5rem 0.75rem; color: #f9fafb; font-size: 0.9rem;
   }
   .form-group input:focus { outline: none; border-color: #6366f1; }
   .form-hint { font-size: 0.75rem; color: #6b7280; }
   .required { color: #ef4444; }
   .form-error {
-    color: #ef4444;
-    font-size: 0.85rem;
-    background: #7f1d1d22;
-    border: 1px solid #ef444433;
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.4rem;
+    color: #ef4444; font-size: 0.85rem; background: #7f1d1d22;
+    border: 1px solid #ef444433; padding: 0.5rem 0.75rem; border-radius: 0.4rem;
   }
   .form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 0.25rem; }
 </style>

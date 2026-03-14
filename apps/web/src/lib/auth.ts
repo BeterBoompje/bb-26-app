@@ -29,7 +29,7 @@ export async function requireAdmin(cookies: AstroCookies) {
 
   const { data: profile } = await supabase
     .from("staff_profiles")
-    .select("id, full_name, email, role, default_location_id, is_active")
+    .select("id, full_name, email, role, project_id, default_location_id, is_active")
     .eq("id", session.user.id)
     .single();
 
@@ -53,7 +53,7 @@ export async function requireStaff(cookies: AstroCookies) {
 
   const { data: profile } = await supabase
     .from("staff_profiles")
-    .select("id, full_name, email, role, default_location_id, is_active")
+    .select("id, full_name, email, role, project_id, default_location_id, is_active")
     .eq("id", session.user.id)
     .single();
 

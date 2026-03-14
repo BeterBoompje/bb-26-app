@@ -24,6 +24,14 @@ const currentSeason = seasonParam
 
 // ── Tab 1: Totaaloverzicht per boomtype ────────────────────────
 // Per category_code, gesommeerd over alle distributeurs
+type DistBreakdown = {
+  distributor_id: string;
+  name: string;
+  voorraad: number;
+  ingekocht: number;
+  extra: number;
+};
+
 type OverzichtRow = {
   category_code: string;
   display_label: string | null;
@@ -33,6 +41,7 @@ type OverzichtRow = {
   beschikbaar: number;
   verkocht: number;
   restant: number;
+  distributors: DistBreakdown[];
 };
 
 const overzicht: OverzichtRow[] = [];
@@ -41,7 +50,8 @@ if (currentSeason) {
   const { data: lines } = await supabase
     .from("inventory_lines")
     .select(`
-      category_code, display_label, voorraad, ingekocht,
+      category_code, display_label, voorraad, ingekocht, distributor_id,
+      distributors ( id, name ),
       inventory_adjustments ( quantity )
     `)
     .eq("season_id", currentSeason.id)
@@ -67,11 +77,23 @@ if (currentSeason) {
         beschikbaar: 0,
         verkocht: 0,
         restant: 0,
+        distributors: [],
       };
     }
     grouped[code].voorraad += line.voorraad;
     grouped[code].ingekocht += line.ingekocht;
     grouped[code].extra += extra;
+
+    const dist = (line.distributors as any);
+    if (dist?.id) {
+      grouped[code].distributors.push({
+        distributor_id: dist.id,
+        name: dist.name ?? "Onbekend",
+        voorraad: line.voorraad,
+        ingekocht: line.ingekocht,
+        extra,
+      });
+    }
   }
 
   // Verkochte aantallen koppelen via SKU (als shopify_order_items beschikbaar)
@@ -212,11 +234,11 @@ function fmtDate(d: string | null): string {
 
   <!-- Tabs -->
   <div class="tabs">
-    <button class="tab active" id="tab1" onclick="switchTab('overzicht')">
+    <button class="tab active" id="tab1">
       Totaaloverzicht per boomtype
     </button>
-    <button class="tab" id="tab2" onclick="switchTab('locatie')">
-      Locatie & datum matrix
+    <button class="tab" id="tab2">
+      Locatie &amp; datum matrix
     </button>
   </div>
 
@@ -233,6 +255,7 @@ function fmtDate(d: string | null): string {
         <table class="rep-table">
           <thead>
             <tr>
+              <th class="toggle-col"></th>
               <th>Categorie</th>
               <th>Omschrijving</th>
               <th class="num-col">Voorraad</th>
@@ -244,25 +267,56 @@ function fmtDate(d: string | null): string {
             </tr>
           </thead>
           <tbody>
-            {overzicht.map((row) => (
-              <tr>
-                <td class="code-cell">{row.category_code}</td>
-                <td class="label-cell">{row.display_label ?? "—"}</td>
-                <td class="num-col">{row.voorraad.toLocaleString("nl")}</td>
-                <td class="num-col">{row.ingekocht.toLocaleString("nl")}</td>
-                <td class={"num-col " + (row.extra > 0 ? "pos-cell" : row.extra < 0 ? "neg-cell" : "")}>
-                  {row.extra > 0 ? "+" : ""}{row.extra.toLocaleString("nl")}
-                </td>
-                <td class="num-col total-col">{row.beschikbaar.toLocaleString("nl")}</td>
-                <td class="num-col sold-col">{row.verkocht.toLocaleString("nl")}</td>
-                <td class={"num-col rest-col " + (row.restant < 0 ? "neg-cell" : "")}>
-                  {row.restant.toLocaleString("nl")}
-                </td>
-              </tr>
+            {overzicht.map((row, idx) => (
+              <Fragment>
+                <tr>
+                  <td class="toggle-col">
+                    {row.distributors.length > 1 && (
+                      <button class="toggle-btn" data-detail={"dist-" + idx} title="Toon per distributeur">▶</button>
+                    )}
+                  </td>
+                  <td class="code-cell">{row.category_code}</td>
+                  <td class="label-cell">{row.display_label ?? "—"}</td>
+                  <td class="num-col">{row.voorraad.toLocaleString("nl")}</td>
+                  <td class="num-col">{row.ingekocht.toLocaleString("nl")}</td>
+                  <td class={"num-col " + (row.extra > 0 ? "pos-cell" : row.extra < 0 ? "neg-cell" : "")}>
+                    {row.extra > 0 ? "+" : ""}{row.extra.toLocaleString("nl")}
+                  </td>
+                  <td class="num-col total-col">{row.beschikbaar.toLocaleString("nl")}</td>
+                  <td class="num-col sold-col">{row.verkocht.toLocaleString("nl")}</td>
+                  <td class={"num-col rest-col " + (row.restant < 0 ? "neg-cell" : "")}>
+                    {row.restant.toLocaleString("nl")}
+                  </td>
+                </tr>
+                {row.distributors.length > 1 && (
+                  <tr class="dist-detail" id={"dist-" + idx} style="display:none">
+                    <td></td>
+                    <td colspan="8">
+                      <div class="dist-breakdown">
+                        {row.distributors.map((d) => (
+                          <div class="dist-line">
+                            <a href={"/app/dashboard/admin/distributeurs/" + d.distributor_id} class="dist-name">{d.name}</a>
+                            <span class="dist-nums">
+                              <span title="Voorraad">V: {d.voorraad}</span>
+                              <span title="Ingekocht">I: {d.ingekocht}</span>
+                              {d.extra !== 0 && (
+                                <span class={d.extra > 0 ? "pos-cell" : "neg-cell"} title="Aanpassing">
+                                  Δ {d.extra > 0 ? "+" : ""}{d.extra}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
           <tfoot>
             <tr class="totals-row">
+              <td></td>
               <td colspan="2"><strong>Totaal</strong></td>
               <td class="num-col">{totals.voorraad.toLocaleString("nl")}</td>
               <td class="num-col">{totals.ingekocht.toLocaleString("nl")}</td>
@@ -283,7 +337,12 @@ function fmtDate(d: string | null): string {
   <div id="panel-locatie" class="tab-panel" style="display:none">
     {locatieMatrix.length === 0 ? (
       <div class="empty-state">
-        Geen pickup-data beschikbaar voor {currentSeason?.label ?? "dit seizoen"}.
+        <strong>Nog geen ophaaldata voor {currentSeason?.label ?? "dit seizoen"}.</strong>
+        <br /><br />
+        De locatie &amp; datum matrix toont klantorders per ophaallocatie en -dag.<br />
+        Deze data verschijnt automatisch zodra Shopify-bestellingen zijn gesynchroniseerd.
+        <br /><br />
+        <span style="font-size:0.8rem">Tip: gebruik de debug-tools om testorders aan te maken.</span>
       </div>
     ) : (
       <div class="table-wrapper">
@@ -353,16 +412,29 @@ function fmtDate(d: string | null): string {
       </div>
     )}
   </div>
-</DashboardLayout>
 
-<script>
-  function switchTab(tab) {
-    document.getElementById("panel-overzicht").style.display = tab === "overzicht" ? "block" : "none";
-    document.getElementById("panel-locatie").style.display = tab === "locatie" ? "block" : "none";
-    document.getElementById("tab1").classList.toggle("active", tab === "overzicht");
-    document.getElementById("tab2").classList.toggle("active", tab === "locatie");
-  }
-</script>
+  <script is:inline>
+    function switchTab(tab) {
+      document.getElementById("panel-overzicht").style.display = tab === "overzicht" ? "block" : "none";
+      document.getElementById("panel-locatie").style.display = tab === "locatie" ? "block" : "none";
+      document.getElementById("tab1").classList.toggle("active", tab === "overzicht");
+      document.getElementById("tab2").classList.toggle("active", tab === "locatie");
+    }
+    document.getElementById("tab1").addEventListener("click", function() { switchTab("overzicht"); });
+    document.getElementById("tab2").addEventListener("click", function() { switchTab("locatie"); });
+
+    // Distributor uitklap
+    document.querySelectorAll(".toggle-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var detailId = btn.getAttribute("data-detail");
+        var detail = document.getElementById(detailId);
+        var expanded = detail.style.display !== "none";
+        detail.style.display = expanded ? "none" : "table-row";
+        btn.textContent = expanded ? "▶" : "▼";
+      });
+    });
+  </script>
+</DashboardLayout>
 
 <style>
   .page-header {
@@ -494,4 +566,24 @@ function fmtDate(d: string | null): string {
     max-width: 60px;
     transition: width 0.3s;
   }
+
+  /* Distributor uitklap */
+  .toggle-col { width: 2rem; padding: 0.4rem 0.25rem 0.4rem 0.75rem !important; }
+  .toggle-btn {
+    background: none; border: none; color: #6b7280; cursor: pointer;
+    font-size: 0.65rem; padding: 0.2rem 0.4rem; border-radius: 0.25rem;
+    line-height: 1;
+  }
+  .toggle-btn:hover { background: #374151; color: #f9fafb; }
+
+  .dist-detail > td { background: #0f172a !important; padding: 0.35rem 0.75rem 0.6rem !important; }
+  .dist-breakdown { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .dist-line {
+    display: flex; align-items: center; gap: 0.75rem;
+    background: #1f2937; border: 1px solid #374151; border-radius: 0.4rem;
+    padding: 0.35rem 0.75rem; font-size: 0.8rem;
+  }
+  .dist-name { font-weight: 600; color: #d1d5db; text-decoration: none; }
+  .dist-name:hover { color: #6366f1; text-decoration: underline; }
+  .dist-nums { display: flex; gap: 0.6rem; color: #6b7280; font-size: 0.78rem; }
 </style>

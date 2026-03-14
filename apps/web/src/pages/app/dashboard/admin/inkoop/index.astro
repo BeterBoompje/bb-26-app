@@ -1,0 +1,776 @@
+---
+import DashboardLayout from "../../../../../layouts/DashboardLayout.astro";
+import { requireAdmin } from "../../../../../lib/auth";
+
+const auth = await requireAdmin(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+if (auth.forbidden) return Astro.redirect("/app");
+
+const { supabase, profile } = auth;
+const project_id = profile!.project_id as string | null | undefined;
+
+// Seizoenen
+const { data: seasons } = await supabase
+  .from("seasons")
+  .select("id, year, label, is_active")
+  .order("year", { ascending: false });
+
+const url = new URL(Astro.request.url);
+const seasonParam = url.searchParams.get("season_id");
+const activeSeason = (seasons ?? []).find((s: any) => s.is_active) ?? (seasons ?? [])[0];
+const currentSeason = seasonParam
+  ? (seasons ?? []).find((s: any) => s.id === seasonParam) ?? activeSeason
+  : activeSeason;
+
+// Alle inkoopregels voor dit seizoen
+const { data: lines } = await supabase
+  .from("purchase_order_lines")
+  .select("*")
+  .eq("project_id", project_id ?? "")
+  .eq("season_id", currentSeason?.id ?? "")
+  .order("doel")
+  .order("categorie_code");
+
+// Beschikbare product-categorieën voor het formulier
+const { data: variants } = await supabase
+  .from("product_variants")
+  .select("sku_pattern, display_label, color_name")
+  .eq("project_id", project_id ?? "")
+  .order("sort_order");
+
+const DOELEN = [
+  "Randijk | BB Pickups",
+  "D&K | Deco & pick up",
+  "Plantsome | BB verzenden",
+  "STECK inkoop",
+  "Plantsome inkoop",
+];
+
+const STATUS_LABELS: Record<string, string> = {
+  optie:      "Optie",
+  besteld:    "Besteld",
+  geleverd:   "Geleverd",
+  geannuleerd:"Geannuleerd",
+};
+
+// Bereken berekende kolommen
+type Line = {
+  id: string;
+  doel: string;
+  leverancier: string;
+  levering_week: string | null;
+  status: string;
+  categorie_code: string;
+  product_naam: string | null;
+  label_kleur: string | null;
+  sku: string | null;
+  bestemming: string | null;
+  inkoop_excl: number | null;
+  fulfillment_excl: number | null;
+  verzend_excl: number | null;
+  afdracht_excl: number | null;
+  green_return: number | null;
+  handelsprijs: number | null;
+  verkoop_excl: number | null;
+  verkoop_incl: number | null;
+  aantal: number;
+  opmerkingen: string | null;
+  // computed
+  kostprijs: number;
+  marge_per_stuk: number;
+  totale_inkoop: number;
+  totale_marge: number;
+};
+
+function calcLine(r: any): Line {
+  const inkoop   = r.inkoop_excl   ?? 0;
+  const ff       = r.fulfillment_excl ?? 0;
+  const verzend  = r.verzend_excl  ?? 0;
+  const afdracht = r.afdracht_excl ?? 0;
+  const green    = r.green_return  ?? 0;
+  const kostprijs    = inkoop + ff + verzend + afdracht + green;
+  const vk_excl      = r.verkoop_excl ?? 0;
+  const marge_ps     = vk_excl - kostprijs;
+  return {
+    ...r,
+    kostprijs,
+    marge_per_stuk: marge_ps,
+    totale_inkoop: r.aantal * inkoop,
+    totale_marge:  r.aantal * marge_ps,
+  };
+}
+
+const allLines: Line[] = (lines ?? []).map(calcLine);
+
+// Groepeer per DOEL voor tabs
+const byDoel: Record<string, Line[]> = {};
+for (const l of allLines) {
+  if (!byDoel[l.doel]) byDoel[l.doel] = [];
+  byDoel[l.doel].push(l);
+}
+
+// Totalen per DOEL-tab
+function totalsFor(rows: Line[]) {
+  return rows.reduce(
+    (acc, r) => {
+      acc.aantal      += r.aantal;
+      acc.totale_inkoop += r.totale_inkoop;
+      acc.totale_marge  += r.totale_marge;
+      return acc;
+    },
+    { aantal: 0, totale_inkoop: 0, totale_marge: 0 }
+  );
+}
+
+const grandTotals = totalsFor(allLines);
+
+function fmtEur(n: number | null): string {
+  if (n === null || n === undefined) return "—";
+  return "€\u00a0" + n.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+const COLOR_DOT: Record<string, string> = {
+  geel:  "#FACC15",
+  wit:   "#E5E7EB",
+  paars: "#A855F7",
+  blauw: "#3B82F6",
+  rood:  "#EF4444",
+  groen: "#22C55E",
+};
+
+function colorDotStyle(kleur: string | null): string {
+  if (!kleur) return "";
+  const hex = COLOR_DOT[kleur.toLowerCase()] ?? "#6B7280";
+  return `display:inline-block;width:0.65rem;height:0.65rem;border-radius:50%;background:${hex};margin-right:0.35rem;vertical-align:middle;`;
+}
+
+// Serialize DB-velden voor edit-modal (geen computed fields)
+function rowJson(row: Line): string {
+  return JSON.stringify({
+    id: row.id, doel: row.doel, leverancier: row.leverancier,
+    levering_week: row.levering_week, status: row.status,
+    categorie_code: row.categorie_code, product_code: (row as any).product_code,
+    product_naam: row.product_naam, label_kleur: row.label_kleur,
+    bb_wensen: (row as any).bb_wensen, sku: row.sku,
+    bestemming: row.bestemming, leverings_locatie: (row as any).leverings_locatie,
+    inkoop_excl: row.inkoop_excl, fulfillment_excl: row.fulfillment_excl,
+    verzend_excl: row.verzend_excl, afdracht_excl: row.afdracht_excl,
+    green_return: row.green_return, handelsprijs: row.handelsprijs,
+    verkoop_incl: row.verkoop_incl, verkoop_excl: row.verkoop_excl,
+    aantal: row.aantal, opmerkingen: row.opmerkingen,
+  });
+}
+---
+
+<DashboardLayout title="Inkoop" userName={profile!.full_name}>
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Inkoop</h1>
+      <p class="page-subtitle">{allLines.length} regel{allLines.length !== 1 ? "s" : ""} · totale marge: {fmtEur(grandTotals.totale_marge)}</p>
+    </div>
+    <div class="header-actions">
+      <form method="get" style="display:inline">
+        <select name="season_id" class="season-select" onchange="this.form.submit()">
+          {(seasons ?? []).map((s: any) => (
+            <option value={s.id} {...(s.id === currentSeason?.id ? { selected: true } : {})}>
+              {s.label}{s.is_active ? " (actief)" : ""}
+            </option>
+          ))}
+        </select>
+      </form>
+      <button class="btn-primary" id="btnNieuw">+ Nieuwe inkooporder</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-tab="totaal" id="tab-totaal">
+      Totaal ({allLines.length})
+    </button>
+    {DOELEN.map((doel) => {
+      const cnt = (byDoel[doel] ?? []).length;
+      const tabId = "tab-" + doel.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+      return (
+        <button class="tab" data-tab={doel} id={tabId}>
+          {doel.split("|")[0].trim()} ({cnt})
+        </button>
+      );
+    })}
+  </div>
+
+  <!-- Tab: Totaal -->
+  <div class="tab-panel" id="panel-totaal">
+    {allLines.length === 0 ? (
+      <div class="empty-state">
+        <strong>Nog geen inkoopregels voor {currentSeason?.label ?? "dit seizoen"}.</strong>
+        <br /><br />
+        Klik op '+ Nieuwe inkooporder' om te beginnen.
+      </div>
+    ) : (
+      <div class="table-wrapper">
+        <table class="ink-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>DOEL</th>
+              <th>Leverancier</th>
+              <th>Categorie</th>
+              <th>Product</th>
+              <th>Kleur</th>
+              <th>Week</th>
+              <th class="num-col">Inkoop</th>
+              <th class="num-col">Kostprijs</th>
+              <th class="num-col">VK excl</th>
+              <th class="num-col">Marge/stuk</th>
+              <th class="num-col">Aantal</th>
+              <th class="num-col">Totale marge</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {allLines.map((row) => (
+              <tr class="ink-row" data-id={row.id} data-json={rowJson(row)}>
+                <td><span class={"status-badge status-" + row.status}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
+                <td class="doel-cell">{row.doel.split("|")[0].trim()}</td>
+                <td class="lev-cell">{row.leverancier || <span class="muted">—</span>}</td>
+                <td class="code-cell">{row.categorie_code}</td>
+                <td class="naam-cell">{row.product_naam || <span class="muted">—</span>}</td>
+                <td>
+                  {row.label_kleur && (
+                    <span>
+                      <span style={colorDotStyle(row.label_kleur)}></span>
+                      {row.label_kleur}
+                    </span>
+                  )}
+                </td>
+                <td class="week-cell">{row.levering_week || <span class="muted">—</span>}</td>
+                <td class="num-col">{fmtEur(row.inkoop_excl)}</td>
+                <td class="num-col">{fmtEur(row.kostprijs)}</td>
+                <td class="num-col">{fmtEur(row.verkoop_excl)}</td>
+                <td class={"num-col " + (row.marge_per_stuk < 0 ? "neg-cell" : "pos-cell")}>
+                  {fmtEur(row.marge_per_stuk)}
+                </td>
+                <td class="num-col">{row.aantal.toLocaleString("nl")}</td>
+                <td class={"num-col marge-col " + (row.totale_marge < 0 ? "neg-cell" : "")}>
+                  {fmtEur(row.totale_marge)}
+                </td>
+                <td class="actions-col">
+                  <button class="btn-edit" data-id={row.id} title="Bewerken">✎</button>
+                  <button class="btn-del"  data-id={row.id} title="Verwijderen">✕</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr class="totals-row">
+              <td colspan="11"><strong>Totaal</strong></td>
+              <td class="num-col"><strong>{grandTotals.aantal.toLocaleString("nl")}</strong></td>
+              <td class={"num-col marge-col " + (grandTotals.totale_marge < 0 ? "neg-cell" : "")}>
+                <strong>{fmtEur(grandTotals.totale_marge)}</strong>
+              </td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    )}
+  </div>
+
+  <!-- Tabs per DOEL -->
+  {DOELEN.map((doel) => {
+    const rows = byDoel[doel] ?? [];
+    const t = totalsFor(rows);
+    const panelId = "panel-" + doel.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+    return (
+      <div class="tab-panel" id={panelId} style="display:none">
+        {rows.length === 0 ? (
+          <div class="empty-state">
+            Nog geen inkoopregels voor <strong>{doel}</strong>.
+          </div>
+        ) : (
+          <div class="table-wrapper">
+            <table class="ink-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Leverancier</th>
+                  <th>Categorie</th>
+                  <th>Product</th>
+                  <th>Kleur</th>
+                  <th>Week</th>
+                  <th class="num-col">Inkoop</th>
+                  <th class="num-col">Kostprijs</th>
+                  <th class="num-col">VK excl</th>
+                  <th class="num-col">Marge/stuk</th>
+                  <th class="num-col">Aantal</th>
+                  <th class="num-col">Totale marge</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr class="ink-row" data-id={row.id} data-json={rowJson(row)}>
+                    <td><span class={"status-badge status-" + row.status}>{STATUS_LABELS[row.status] ?? row.status}</span></td>
+                    <td class="lev-cell">{row.leverancier || <span class="muted">—</span>}</td>
+                    <td class="code-cell">{row.categorie_code}</td>
+                    <td class="naam-cell">{row.product_naam || <span class="muted">—</span>}</td>
+                    <td>
+                      {row.label_kleur && (
+                        <span>
+                          <span style={colorDotStyle(row.label_kleur)}></span>
+                          {row.label_kleur}
+                        </span>
+                      )}
+                    </td>
+                    <td class="week-cell">{row.levering_week || <span class="muted">—</span>}</td>
+                    <td class="num-col">{fmtEur(row.inkoop_excl)}</td>
+                    <td class="num-col">{fmtEur(row.kostprijs)}</td>
+                    <td class="num-col">{fmtEur(row.verkoop_excl)}</td>
+                    <td class={"num-col " + (row.marge_per_stuk < 0 ? "neg-cell" : "pos-cell")}>
+                      {fmtEur(row.marge_per_stuk)}
+                    </td>
+                    <td class="num-col">{row.aantal.toLocaleString("nl")}</td>
+                    <td class={"num-col marge-col " + (row.totale_marge < 0 ? "neg-cell" : "")}>
+                      {fmtEur(row.totale_marge)}
+                    </td>
+                    <td class="actions-col">
+                      <button class="btn-edit" data-id={row.id} title="Bewerken">✎</button>
+                      <button class="btn-del"  data-id={row.id} title="Verwijderen">✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr class="totals-row">
+                  <td colspan="10"><strong>Totaal {doel}</strong></td>
+                  <td class="num-col"><strong>{t.aantal.toLocaleString("nl")}</strong></td>
+                  <td class={"num-col marge-col " + (t.totale_marge < 0 ? "neg-cell" : "")}>
+                    <strong>{fmtEur(t.totale_marge)}</strong>
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  })}
+
+  <!-- Modal: nieuwe / bewerk inkooporder -->
+  <div class="modal-overlay" id="modalInkoop" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">Nieuwe inkooporder</h2>
+        <button class="modal-close" id="btnModalClose">✕</button>
+      </div>
+      <form id="formInkoop" class="modal-form">
+        <input type="hidden" id="lineId" name="id" value="" />
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>DOEL <span class="required">*</span></label>
+            <select name="doel" id="fDoel" required>
+              {DOELEN.map((d) => <option value={d}>{d}</option>)}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select name="status" id="fStatus">
+              <option value="optie">Optie</option>
+              <option value="besteld">Besteld</option>
+              <option value="geleverd">Geleverd</option>
+              <option value="geannuleerd">Geannuleerd</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Leverancier <span class="required">*</span></label>
+            <input type="text" name="leverancier" id="fLeverancier" placeholder="Groen Direkt, Overweg, Anthonissen…" />
+          </div>
+          <div class="form-group">
+            <label>Levering week</label>
+            <input type="text" name="levering_week" id="fWeek" placeholder="W 47" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Categorie <span class="required">*</span></label>
+            <select name="categorie_code" id="fCategorie" required>
+              <option value="">— Kies —</option>
+              {(variants ?? []).map((v: any) => (
+                <option value={v.sku_pattern}>{v.sku_pattern} — {v.display_label}</option>
+              ))}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Product code</label>
+            <input type="text" name="product_code" id="fProductCode" placeholder="20341" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Product naam</label>
+          <input type="text" name="product_naam" id="fProductNaam" placeholder="100 pallet Picea omorika 100-125 cm…" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Label kleur</label>
+            <select name="label_kleur" id="fLabelKleur">
+              <option value="">— Geen —</option>
+              <option value="GEEL">GEEL</option>
+              <option value="WIT">WIT</option>
+              <option value="PAARS">PAARS</option>
+              <option value="BLAUW">BLAUW</option>
+              <option value="ROOD">ROOD</option>
+              <option value="GROEN">GROEN</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>SKU</label>
+            <input type="text" name="sku" id="fSku" class="mono-input" placeholder="BB-MET-100-125-GD" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Bestemming</label>
+            <input type="text" name="bestemming" id="fBestemming" placeholder="Pickups, D&amp;K Pickups Waddinxveen…" />
+          </div>
+          <div class="form-group">
+            <label>Leverings locatie</label>
+            <input type="text" name="leverings_locatie" id="fLeveringsLocatie" placeholder="Randijk Glind, Waddinxveen…" />
+          </div>
+        </div>
+
+        <div class="form-section-title">Prijzen (excl. BTW)</div>
+        <div class="form-row price-row">
+          <div class="form-group">
+            <label>Inkoop</label>
+            <input type="number" name="inkoop_excl" id="fInkoop" step="0.0001" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Fulfillment</label>
+            <input type="number" name="fulfillment_excl" id="fFulfillment" step="0.0001" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Verzend</label>
+            <input type="number" name="verzend_excl" id="fVerzend" step="0.0001" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Afdracht</label>
+            <input type="number" name="afdracht_excl" id="fAfdracht" step="0.0001" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Green return</label>
+            <input type="number" name="green_return" id="fGreenReturn" step="0.0001" placeholder="0.00" />
+          </div>
+        </div>
+
+        <div class="form-row price-row">
+          <div class="form-group">
+            <label>Handelsprijs</label>
+            <input type="number" name="handelsprijs" id="fHandelsprijs" step="0.0001" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Verkoop incl</label>
+            <input type="number" name="verkoop_incl" id="fVerkInkl" step="0.01" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Verkoop excl</label>
+            <input type="number" name="verkoop_excl" id="fVerkExkl" step="0.01" placeholder="0.00" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Aantal <span class="required">*</span></label>
+            <input type="number" name="aantal" id="fAantal" min="0" value="0" required />
+          </div>
+          <div class="form-group">
+            <label>BB wensen</label>
+            <input type="text" name="bb_wensen" id="fBBWensen" placeholder="Paarse zak / BB label" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Opmerkingen</label>
+          <textarea name="opmerkingen" id="fOpmerkingen" rows="2" placeholder="Vrije notitie…"></textarea>
+        </div>
+
+        <div id="inkFormError" class="form-error" style="display:none"></div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="btnModalCancel">Annuleren</button>
+          <button type="submit" class="btn-primary" id="btnModalSubmit">Opslaan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script is:inline>
+    // ── Tab switching ──────────────────────────────────────────
+    var allTabs    = document.querySelectorAll(".tab");
+    var allPanels  = document.querySelectorAll(".tab-panel");
+
+    allTabs.forEach(function(tab) {
+      tab.addEventListener("click", function() {
+        var target = tab.getAttribute("data-tab");
+        allTabs.forEach(function(t) { t.classList.remove("active"); });
+        allPanels.forEach(function(p) { p.style.display = "none"; });
+        tab.classList.add("active");
+
+        if (target === "totaal") {
+          document.getElementById("panel-totaal").style.display = "block";
+        } else {
+          var panelId = "panel-" + target.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+          var panel = document.getElementById(panelId);
+          if (panel) panel.style.display = "block";
+        }
+      });
+    });
+
+    // ── Modal ─────────────────────────────────────────────────
+    var modal       = document.getElementById("modalInkoop");
+    var form        = document.getElementById("formInkoop");
+    var formError   = document.getElementById("inkFormError");
+    var modalTitle  = document.getElementById("modalTitle");
+    var submitBtn   = document.getElementById("btnModalSubmit");
+    var lineIdInput = document.getElementById("lineId");
+
+    function openModal(lineData) {
+      form.reset();
+      formError.style.display = "none";
+      if (lineData) {
+        modalTitle.textContent = "Inkooporder bewerken";
+        lineIdInput.value = lineData.id;
+        form.doel.value           = lineData.doel ?? "";
+        form.status.value         = lineData.status ?? "optie";
+        form.leverancier.value    = lineData.leverancier ?? "";
+        form.levering_week.value  = lineData.levering_week ?? "";
+        form.categorie_code.value = lineData.categorie_code ?? "";
+        form.product_code.value   = lineData.product_code ?? "";
+        form.product_naam.value   = lineData.product_naam ?? "";
+        form.label_kleur.value    = lineData.label_kleur ?? "";
+        form.sku.value            = lineData.sku ?? "";
+        form.bestemming.value     = lineData.bestemming ?? "";
+        form.leverings_locatie.value = lineData.leverings_locatie ?? "";
+        form.inkoop_excl.value    = lineData.inkoop_excl ?? "";
+        form.fulfillment_excl.value = lineData.fulfillment_excl ?? "";
+        form.verzend_excl.value   = lineData.verzend_excl ?? "";
+        form.afdracht_excl.value  = lineData.afdracht_excl ?? "";
+        form.green_return.value   = lineData.green_return ?? "";
+        form.handelsprijs.value   = lineData.handelsprijs ?? "";
+        form.verkoop_incl.value   = lineData.verkoop_incl ?? "";
+        form.verkoop_excl.value   = lineData.verkoop_excl ?? "";
+        form.aantal.value         = lineData.aantal ?? 0;
+        form.bb_wensen.value      = lineData.bb_wensen ?? "";
+        form.opmerkingen.value    = lineData.opmerkingen ?? "";
+      } else {
+        modalTitle.textContent = "Nieuwe inkooporder";
+        lineIdInput.value = "";
+      }
+      modal.style.display = "flex";
+    }
+
+    function closeModal() {
+      modal.style.display = "none";
+    }
+
+    document.getElementById("btnNieuw").addEventListener("click", function() { openModal(null); });
+    document.getElementById("btnModalClose").addEventListener("click", closeModal);
+    document.getElementById("btnModalCancel").addEventListener("click", closeModal);
+    modal.addEventListener("click", function(e) { if (e.target === modal) closeModal(); });
+
+    // Bewerk-knoppen — lees de row-data uit het data-json attribuut
+    document.querySelectorAll(".btn-edit").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var row  = btn.closest("tr");
+        var json = row.getAttribute("data-json");
+        if (json) openModal(JSON.parse(json));
+      });
+    });
+
+    // Verwijder-knoppen
+    document.querySelectorAll(".btn-del").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        if (!confirm("Weet je zeker dat je deze inkooporder wilt verwijderen?")) return;
+        var row = btn.closest("tr");
+        var id = row.getAttribute("data-id");
+        fetch("/api/inkoop/" + id + "/update", {
+          method: "DELETE",
+        }).then(function(res) {
+          if (res.ok) {
+            window.location.reload();
+          } else {
+            res.json().then(function(j) { alert("Fout: " + (j.error || "onbekend")); });
+          }
+        });
+      });
+    });
+
+    // Formulier opslaan
+    form.addEventListener("submit", async function(e) {
+      e.preventDefault();
+      formError.style.display = "none";
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Bezig…";
+
+      var id = lineIdInput.value;
+      var data = Object.fromEntries(new FormData(form));
+      // Verwijder lege id
+      if (!data.id) delete data.id;
+
+      var url    = id ? "/api/inkoop/" + id + "/update" : "/api/inkoop/create";
+      var method = id ? "PATCH" : "POST";
+
+      try {
+        var res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        var json = await res.json();
+        if (!res.ok) {
+          formError.textContent = json.error || "Er ging iets mis.";
+          formError.style.display = "block";
+        } else {
+          window.location.reload();
+        }
+      } catch {
+        formError.textContent = "Netwerkfout.";
+        formError.style.display = "block";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Opslaan";
+      }
+    });
+  </script>
+</DashboardLayout>
+
+<style>
+  .page-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;
+  }
+  .page-title { font-size: 1.75rem; font-weight: 800; color: #f9fafb; margin: 0 0 0.25rem; }
+  .page-subtitle { color: #9ca3af; font-size: 0.875rem; margin: 0; }
+  .header-actions { display: flex; align-items: center; gap: 0.75rem; }
+
+  .btn-primary {
+    background: #10b981; color: #fff; border: none; border-radius: 0.5rem;
+    padding: 0.55rem 1.1rem; font-size: 0.875rem; font-weight: 600; cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-primary:hover { background: #059669; }
+  .btn-secondary {
+    background: #374151; color: #f9fafb; border: none; border-radius: 0.5rem;
+    padding: 0.55rem 1.1rem; font-size: 0.875rem; font-weight: 600; cursor: pointer;
+  }
+  .btn-secondary:hover { background: #4b5563; }
+
+  .season-select {
+    background: #1f2937; border: 1px solid #374151; border-radius: 0.4rem;
+    color: #f9fafb; padding: 0.45rem 0.75rem; font-size: 0.875rem; cursor: pointer;
+  }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid #374151; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: #9ca3af; font-size: 0.82rem; font-weight: 600; padding: 0.6rem 0.9rem;
+    cursor: pointer; margin-bottom: -1px; white-space: nowrap;
+  }
+  .tab.active { color: #f9fafb; border-bottom-color: #10b981; }
+  .tab:hover  { color: #f9fafb; }
+
+  .empty-state { text-align: center; padding: 4rem 2rem; color: #6b7280; line-height: 1.8; }
+  .muted { color: #4b5563; }
+
+  /* Table */
+  .table-wrapper { overflow-x: auto; }
+  .ink-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 900px; }
+  .ink-table th {
+    text-align: left; padding: 0.55rem 0.6rem; font-size: 0.68rem;
+    text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280;
+    border-bottom: 1px solid #374151; background: #1f2937; white-space: nowrap;
+  }
+  .ink-table td { padding: 0.5rem 0.6rem; border-bottom: 1px solid #1f293755; color: #f9fafb; }
+  .ink-row:hover td { background: #1f293730; }
+  .num-col { text-align: right; white-space: nowrap; }
+  .code-cell { font-family: monospace; font-size: 0.8rem; color: #d1d5db; }
+  .naam-cell { color: #9ca3af; font-size: 0.8rem; max-width: 18rem; }
+  .doel-cell { color: #9ca3af; font-size: 0.78rem; white-space: nowrap; }
+  .lev-cell  { color: #d1d5db; white-space: nowrap; }
+  .week-cell { color: #9ca3af; white-space: nowrap; }
+  .marge-col { font-weight: 700; }
+  .pos-cell  { color: #10b981; }
+  .neg-cell  { color: #ef4444; }
+  .actions-col { white-space: nowrap; text-align: right; }
+
+  .totals-row td { border-top: 2px solid #374151; border-bottom: none; background: #1f2937; }
+
+  /* Status badges */
+  .status-badge {
+    display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px;
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .status-optie      { background: #37415155; color: #9ca3af; }
+  .status-besteld    { background: #1e3a5f; color: #60a5fa; }
+  .status-geleverd   { background: #064e3b; color: #34d399; }
+  .status-geannuleerd{ background: #7f1d1d33; color: #f87171; }
+
+  /* Edit / delete knoppen */
+  .btn-edit, .btn-del {
+    background: none; border: none; cursor: pointer; padding: 0.15rem 0.35rem;
+    border-radius: 0.25rem; font-size: 0.85rem;
+  }
+  .btn-edit { color: #6b7280; }
+  .btn-edit:hover { background: #374151; color: #f9fafb; }
+  .btn-del  { color: #6b7280; }
+  .btn-del:hover  { background: #7f1d1d44; color: #ef4444; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+    display: flex; align-items: center; justify-content: center; z-index: 200;
+  }
+  .modal {
+    background: #1f2937; border: 1px solid #374151; border-radius: 0.75rem;
+    padding: 1.75rem; width: 100%; max-width: 680px; max-height: 92vh; overflow-y: auto;
+  }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+  .modal-header h2 { font-size: 1.15rem; font-weight: 700; color: #f9fafb; margin: 0; }
+  .modal-close { background: none; border: none; color: #9ca3af; font-size: 1.1rem; cursor: pointer; }
+
+  .modal-form { display: flex; flex-direction: column; gap: 0.875rem; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .price-row { grid-template-columns: repeat(5, 1fr); }
+  @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } .price-row { grid-template-columns: 1fr 1fr; } }
+
+  .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .form-group label { font-size: 0.75rem; font-weight: 600; color: #9ca3af; }
+  .form-group input, .form-group select, .form-group textarea {
+    background: #111827; border: 1px solid #374151; border-radius: 0.4rem;
+    padding: 0.45rem 0.65rem; color: #f9fafb; font-size: 0.875rem; font-family: inherit;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none; border-color: #10b981;
+  }
+  .mono-input { font-family: monospace; font-size: 0.82rem; }
+  .required { color: #ef4444; }
+  .form-section-title {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #6b7280; padding-top: 0.25rem;
+    border-top: 1px solid #374151; margin-top: 0.25rem;
+  }
+  .form-error {
+    color: #ef4444; font-size: 0.85rem; background: #7f1d1d22;
+    border: 1px solid #ef444433; padding: 0.5rem 0.75rem; border-radius: 0.4rem;
+  }
+  .form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 0.25rem; }
+</style>

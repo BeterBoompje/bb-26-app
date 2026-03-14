@@ -1,0 +1,465 @@
+---
+import DashboardLayout from "../../../../../layouts/DashboardLayout.astro";
+import { requireAdmin } from "../../../../../lib/auth";
+
+const auth = await requireAdmin(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+if (auth.forbidden) return Astro.redirect("/app");
+
+const { supabase, profile } = auth;
+const { id } = Astro.params;
+
+// Medewerker ophalen
+const { data: mw } = await supabase
+  .from("staff_profiles")
+  .select("id, full_name, email, role, is_active, default_location_id, project_id")
+  .eq("id", id!)
+  .single();
+
+if (!mw) return Astro.redirect("/app/dashboard/admin/medewerkers");
+
+const project_id = (mw.project_id ?? profile!.project_id) as string | null;
+
+// Bestaande locatie-assignments
+const { data: locAssignments } = await supabase
+  .from("location_assignments")
+  .select("id, role_level, location_id, locations ( id, name, city )")
+  .eq("user_id", id!);
+
+// Bestaande distributeur-assignments
+const { data: distAssignments } = await supabase
+  .from("distributor_assignments")
+  .select("id, role_level, distributor_id, distributors ( id, name, code )")
+  .eq("user_id", id!);
+
+// Alle locaties (voor dropdown — minus al gekoppelde)
+const assignedLocationIds = new Set((locAssignments ?? []).map((a: any) => a.location_id));
+const { data: allLocations } = await supabase
+  .from("locations")
+  .select("id, name, city")
+  .eq("project_id", project_id ?? "")
+  .eq("is_active", true)
+  .order("name");
+const availableLocations = (allLocations ?? []).filter((l: any) => !assignedLocationIds.has(l.id));
+
+// Alle distributeurs (voor dropdown — minus al gekoppelde)
+const assignedDistIds = new Set((distAssignments ?? []).map((a: any) => a.distributor_id));
+const { data: allDists } = await supabase
+  .from("distributors")
+  .select("id, name, code")
+  .eq("project_id", project_id ?? "")
+  .eq("is_active", true)
+  .order("name");
+const availableDists = (allDists ?? []).filter((d: any) => !assignedDistIds.has(d.id));
+
+const ROL_LABEL: Record<string, string> = {
+  admin: "Admin",
+  location_manager: "Locatiebeheerder",
+  scanner: "Scanner",
+  distributor: "Distributeur",
+};
+
+const showDistSection = mw.role === "distributor" || mw.role === "admin";
+---
+
+<DashboardLayout title={mw.full_name} userName={profile!.full_name}>
+  <div class="page-header">
+    <div>
+      <a href="/app/dashboard/admin/medewerkers" class="back-link">← Medewerkers</a>
+      <h1 class="page-title">{mw.full_name}</h1>
+      <p class="page-subtitle">{mw.email}</p>
+    </div>
+    <span class={"status-badge " + (mw.is_active ? "status-active" : "status-inactive")}>
+      {mw.is_active ? "Actief" : "Inactief"}
+    </span>
+  </div>
+
+  <!-- Sectie 1: Basisgegevens -->
+  <div class="card">
+    <h2 class="card-title">Basisgegevens</h2>
+    <form id="formUpdate" class="update-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Volledige naam</label>
+          <input type="text" name="full_name" value={mw.full_name} required />
+        </div>
+        <div class="form-group">
+          <label>E-mailadres</label>
+          <input type="email" value={mw.email} disabled class="disabled-input" />
+          <span class="form-hint">E-mail is gekoppeld aan de auth-user en niet aanpasbaar hier.</span>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Rol</label>
+          <select name="role">
+            {["admin", "location_manager", "scanner", "distributor"].map((r) => (
+              <option value={r} {...(mw.role === r ? { selected: true } : {})}>{ROL_LABEL[r]}</option>
+            ))}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Default locatie</label>
+          <select name="default_location_id">
+            <option value="">— Geen —</option>
+            {(allLocations ?? []).map((l: any) => (
+              <option value={l.id} {...(mw.default_location_id === l.id ? { selected: true } : {})}>
+                {l.name}{l.city ? " (" + l.city + ")" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" name="is_active" {...(mw.is_active ? { checked: true } : {})} />
+            Account actief
+          </label>
+          <span class="form-hint">Inactieve medewerkers kunnen niet inloggen.</span>
+        </div>
+      </div>
+      <div id="updateResult" class="result-msg" style="display:none"></div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Opslaan</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Sectie 2: Locatie-assignments -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Pickup-locaties</h2>
+      <button class="btn-sm" id="btnAddLoc">+ Locatie toevoegen</button>
+    </div>
+
+    {(locAssignments ?? []).length === 0 ? (
+      <p class="empty-inline">Nog geen locaties gekoppeld.</p>
+    ) : (
+      <table class="assign-table">
+        <thead>
+          <tr><th>Locatie</th><th>Niveau</th><th></th></tr>
+        </thead>
+        <tbody>
+          {(locAssignments ?? []).map((a: any) => (
+            <tr>
+              <td>{a.locations?.name}{a.locations?.city ? " (" + a.locations.city + ")" : ""}</td>
+              <td><span class={"level-badge level-" + a.role_level}>{a.role_level === "manager" ? "Manager" : "Staff"}</span></td>
+              <td class="action-cell">
+                <button
+                  class="btn-unlink"
+                  data-type="location"
+                  data-id={a.location_id}
+                >
+                  Ontkoppelen
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+
+    <!-- Inline form: locatie toevoegen -->
+    <div id="addLocForm" class="inline-form" style="display:none">
+      <select id="selLoc" class="inline-select">
+        {availableLocations.length === 0
+          ? <option value="">Alle locaties zijn al gekoppeld</option>
+          : availableLocations.map((l: any) => (
+              <option value={l.id}>{l.name}{l.city ? " (" + l.city + ")" : ""}</option>
+            ))
+        }
+      </select>
+      <select id="selLocLevel" class="inline-select inline-select--sm">
+        <option value="staff">Staff</option>
+        <option value="manager">Manager</option>
+      </select>
+      <button class="btn-sm btn-confirm" id="btnConfirmLoc" {...(availableLocations.length === 0 ? { disabled: true } : {})}>Toevoegen</button>
+      <button class="btn-sm btn-cancel" id="btnCancelLoc">Annuleren</button>
+    </div>
+    <div id="locError" class="inline-error" style="display:none"></div>
+  </div>
+
+  <!-- Sectie 3: Distributeur-assignments -->
+  {showDistSection && (
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Distributeurs</h2>
+        <button class="btn-sm" id="btnAddDist">+ Distributeur toevoegen</button>
+      </div>
+
+      {(distAssignments ?? []).length === 0 ? (
+        <p class="empty-inline">Nog geen distributeurs gekoppeld.</p>
+      ) : (
+        <table class="assign-table">
+          <thead>
+            <tr><th>Distributeur</th><th>Niveau</th><th></th></tr>
+          </thead>
+          <tbody>
+            {(distAssignments ?? []).map((a: any) => (
+              <tr>
+                <td>{a.distributors?.name}{a.distributors?.code ? " (" + a.distributors.code + ")" : ""}</td>
+                <td><span class={"level-badge level-" + a.role_level}>{a.role_level === "manager" ? "Manager" : "Staff"}</span></td>
+                <td class="action-cell">
+                  <button
+                    class="btn-unlink"
+                    data-type="distributor"
+                    data-id={a.distributor_id}
+                  >
+                    Ontkoppelen
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <div id="addDistForm" class="inline-form" style="display:none">
+        <select id="selDist" class="inline-select">
+          {availableDists.length === 0
+            ? <option value="">Alle distributeurs zijn al gekoppeld</option>
+            : availableDists.map((d: any) => (
+                <option value={d.id}>{d.name}{d.code ? " (" + d.code + ")" : ""}</option>
+              ))
+          }
+        </select>
+        <select id="selDistLevel" class="inline-select inline-select--sm">
+          <option value="staff">Staff</option>
+          <option value="manager">Manager</option>
+        </select>
+        <button class="btn-sm btn-confirm" id="btnConfirmDist" {...(availableDists.length === 0 ? { disabled: true } : {})}>Toevoegen</button>
+        <button class="btn-sm btn-cancel" id="btnCancelDist">Annuleren</button>
+      </div>
+      <div id="distError" class="inline-error" style="display:none"></div>
+    </div>
+  )}
+</DashboardLayout>
+
+<script>
+  const userId = window.location.pathname.split("/").at(-1);
+  const base = "/api/medewerkers/" + userId;
+
+  // ── Basisgegevens opslaan ─────────────────────────────────────
+  document.getElementById("formUpdate").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const result = document.getElementById("updateResult");
+    result.style.display = "none";
+    const fd = new FormData(this);
+    const payload = {
+      full_name: fd.get("full_name"),
+      role: fd.get("role"),
+      default_location_id: fd.get("default_location_id") || null,
+      is_active: fd.has("is_active"),
+    };
+    const btn = this.querySelector("[type=submit]");
+    btn.disabled = true;
+    btn.textContent = "Opslaan…";
+    try {
+      const res = await fetch(base + "/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        result.textContent = "✗ " + (json.error || "Fout bij opslaan.");
+        result.className = "result-msg result-error";
+      } else {
+        result.textContent = "✓ Opgeslagen";
+        result.className = "result-msg result-ok";
+        setTimeout(() => window.location.reload(), 800);
+      }
+      result.style.display = "block";
+    } catch {
+      result.textContent = "✗ Netwerkfout.";
+      result.className = "result-msg result-error";
+      result.style.display = "block";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Opslaan";
+    }
+  });
+
+  // ── Ontkoppelen (locatie + distributeur) ──────────────────────
+  document.querySelectorAll(".btn-unlink").forEach(function(btn) {
+    btn.addEventListener("click", async function() {
+      const type = this.dataset.type;
+      const targetId = this.dataset.id;
+      if (!confirm("Wil je deze koppeling verwijderen?")) return;
+      const url = type === "location"
+        ? base + "/unassign-location"
+        : base + "/unassign-distributor";
+      const body = type === "location"
+        ? { location_id: targetId }
+        : { distributor_id: targetId };
+      const res = await fetch(url, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) window.location.reload();
+      else {
+        const j = await res.json();
+        alert(j.error || "Ontkoppelen mislukt.");
+      }
+    });
+  });
+
+  // ── Locatie toevoegen ────────────────────────────────────────
+  const addLocForm = document.getElementById("addLocForm");
+  document.getElementById("btnAddLoc").addEventListener("click", function() {
+    addLocForm.style.display = "flex";
+    this.style.display = "none";
+  });
+  document.getElementById("btnCancelLoc").addEventListener("click", function() {
+    addLocForm.style.display = "none";
+    document.getElementById("btnAddLoc").style.display = "";
+  });
+  document.getElementById("btnConfirmLoc").addEventListener("click", async function() {
+    const locErr = document.getElementById("locError");
+    locErr.style.display = "none";
+    const location_id = document.getElementById("selLoc").value;
+    const role_level = document.getElementById("selLocLevel").value;
+    if (!location_id) return;
+    const res = await fetch(base + "/assign-location", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ location_id, role_level }),
+    });
+    if (res.ok) {
+      window.location.reload();
+    } else {
+      const j = await res.json();
+      locErr.textContent = j.error || "Toevoegen mislukt.";
+      locErr.style.display = "block";
+    }
+  });
+
+  // ── Distributeur toevoegen ────────────────────────────────────
+  const addDistForm = document.getElementById("addDistForm");
+  if (addDistForm) {
+    document.getElementById("btnAddDist").addEventListener("click", function() {
+      addDistForm.style.display = "flex";
+      this.style.display = "none";
+    });
+    document.getElementById("btnCancelDist").addEventListener("click", function() {
+      addDistForm.style.display = "none";
+      document.getElementById("btnAddDist").style.display = "";
+    });
+    document.getElementById("btnConfirmDist").addEventListener("click", async function() {
+      const distErr = document.getElementById("distError");
+      distErr.style.display = "none";
+      const distributor_id = document.getElementById("selDist").value;
+      const role_level = document.getElementById("selDistLevel").value;
+      if (!distributor_id) return;
+      const res = await fetch(base + "/assign-distributor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ distributor_id, role_level }),
+      });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        const j = await res.json();
+        distErr.textContent = j.error || "Toevoegen mislukt.";
+        distErr.style.display = "block";
+      }
+    });
+  }
+</script>
+
+<style>
+  .page-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;
+  }
+  .back-link { color: #6b7280; font-size: 0.85rem; text-decoration: none; display: block; margin-bottom: 0.4rem; }
+  .back-link:hover { color: #f9fafb; }
+  .page-title { font-size: 1.75rem; font-weight: 800; color: #f9fafb; margin: 0 0 0.25rem; }
+  .page-subtitle { color: #9ca3af; font-size: 0.875rem; margin: 0; }
+  .status-badge {
+    padding: 0.35rem 0.9rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700;
+    align-self: flex-start; margin-top: 0.25rem;
+  }
+  .status-active { background: #065f4633; color: #10b981; }
+  .status-inactive { background: #37415133; color: #9ca3af; }
+
+  .card {
+    background: #1f2937; border: 1px solid #374151; border-radius: 0.75rem;
+    padding: 1.5rem; margin-bottom: 1.5rem;
+  }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+  .card-title { font-size: 1rem; font-weight: 700; color: #f9fafb; margin: 0 0 1.25rem; }
+  .card-header .card-title { margin: 0; }
+
+  .btn-primary {
+    background: #10b981; color: #fff; border: none; border-radius: 0.5rem;
+    padding: 0.55rem 1.25rem; font-size: 0.875rem; font-weight: 600; cursor: pointer;
+  }
+  .btn-primary:hover { background: #059669; }
+  .btn-sm {
+    background: #374151; color: #f9fafb; border: none; border-radius: 0.4rem;
+    padding: 0.35rem 0.75rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  }
+  .btn-sm:hover { background: #4b5563; }
+  .btn-confirm { background: #10b981; color: #fff; }
+  .btn-confirm:hover { background: #059669; }
+  .btn-cancel { background: transparent; color: #9ca3af; }
+  .btn-cancel:hover { color: #f9fafb; }
+
+  .update-form { display: flex; flex-direction: column; gap: 1rem; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 640px) { .form-row { grid-template-columns: 1fr; } }
+  .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .form-group label { font-size: 0.8rem; font-weight: 600; color: #9ca3af; }
+  .form-group input, .form-group select {
+    background: #111827; border: 1px solid #374151; border-radius: 0.4rem;
+    padding: 0.5rem 0.75rem; color: #f9fafb; font-size: 0.9rem; font-family: inherit;
+  }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: #6366f1; }
+  .disabled-input { opacity: 0.4; cursor: not-allowed; }
+  .form-hint { font-size: 0.75rem; color: #6b7280; }
+  .checkbox-group { flex-direction: row; align-items: flex-start; gap: 0.75rem; flex-wrap: wrap; }
+  .checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: #f9fafb; cursor: pointer; }
+  .checkbox-label input[type="checkbox"] { width: 1rem; height: 1rem; accent-color: #10b981; }
+  .form-actions { display: flex; justify-content: flex-end; }
+  .result-msg { font-size: 0.85rem; padding: 0.4rem 0.75rem; border-radius: 0.35rem; }
+  .result-ok { color: #10b981; background: #065f4622; }
+  .result-error { color: #ef4444; background: #7f1d1d22; }
+
+  .assign-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; margin-bottom: 0.75rem; }
+  .assign-table th {
+    text-align: left; padding: 0.45rem 0.5rem; font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.04em; color: #6b7280; border-bottom: 1px solid #374151;
+  }
+  .assign-table td { padding: 0.6rem 0.5rem; border-bottom: 1px solid #37415133; color: #f9fafb; }
+  .assign-table tr:last-child td { border-bottom: none; }
+  .action-cell { text-align: right; }
+
+  .level-badge {
+    display: inline-block; padding: 0.1rem 0.45rem; border-radius: 999px;
+    font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+  }
+  .level-manager { background: #6366f133; color: #a5b4fc; }
+  .level-staff { background: #37415166; color: #9ca3af; }
+
+  .btn-unlink {
+    background: none; border: 1px solid #374151; color: #9ca3af; border-radius: 0.35rem;
+    padding: 0.2rem 0.6rem; font-size: 0.75rem; cursor: pointer;
+  }
+  .btn-unlink:hover { border-color: #ef4444; color: #ef4444; }
+
+  .empty-inline { color: #6b7280; font-size: 0.875rem; margin: 0 0 0.75rem; }
+
+  .inline-form {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+    margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #374151;
+  }
+  .inline-select {
+    background: #111827; border: 1px solid #374151; border-radius: 0.4rem;
+    padding: 0.4rem 0.6rem; color: #f9fafb; font-size: 0.85rem; flex: 1;
+  }
+  .inline-select--sm { flex: 0 0 auto; min-width: 100px; }
+  .inline-error { color: #ef4444; font-size: 0.8rem; margin-top: 0.4rem; }
+</style>
