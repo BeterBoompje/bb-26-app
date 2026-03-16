@@ -1,0 +1,425 @@
+---
+import DashboardLayout from "../../../../../layouts/DashboardLayout.astro";
+import { requireAdmin } from "../../../../../lib/auth";
+
+const auth = await requireAdmin(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+if (auth.forbidden) return Astro.redirect("/app");
+
+const { supabase, profile } = auth;
+
+const { data: sp } = await supabase
+  .from("staff_profiles")
+  .select("project_id")
+  .eq("id", profile!.id)
+  .single();
+
+const project_id = sp?.project_id ?? null;
+
+let products: any[] = [];
+if (project_id) {
+  const { data } = await supabase
+    .from("product_variants")
+    .select("id, sku_pattern, display_label, product_type, color_name, sort_order, is_active")
+    .eq("project_id", project_id)
+    .order("sort_order")
+    .order("sku_pattern");
+  products = data ?? [];
+}
+
+const PRODUCT_TYPE_LABELS: Record<string, string> = {
+  met_kluit:    "Met kluit",
+  zonder_kluit: "Zonder kluit",
+  overig:       "Overig",
+};
+---
+
+<DashboardLayout title="Producten" userName={profile!.full_name}>
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Producten</h1>
+      <p class="page-subtitle">Beheer productcategorieën en SKU-patronen</p>
+    </div>
+    <button class="btn-primary" id="btnNieuw">+ Nieuw product</button>
+  </div>
+
+  {!project_id && (
+    <div class="alert-warning">
+      Geen project gekoppeld aan uw account.
+    </div>
+  )}
+
+  {project_id && products.length === 0 && (
+    <div class="empty-state">
+      <p>Nog geen producten aangemaakt.</p>
+      <p class="empty-hint">Klik op "+ Nieuw product" om te beginnen.</p>
+    </div>
+  )}
+
+  {products.length > 0 && (
+    <div class="table-wrap">
+      <table class="prod-table">
+        <thead>
+          <tr>
+            <th class="col-sku">SKU-patroon</th>
+            <th class="col-label">Label</th>
+            <th class="col-type">Type</th>
+            <th class="col-color">Kleur</th>
+            <th class="col-sort">Volgorde</th>
+            <th class="col-active">Status</th>
+            <th class="col-act"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {products.map((p: any) => (
+            <tr data-id={p.id}>
+              <td class="col-sku"><code class="sku-code">{p.sku_pattern}</code></td>
+              <td class="col-label">{p.display_label ?? "—"}</td>
+              <td class="col-type">{PRODUCT_TYPE_LABELS[p.product_type] ?? p.product_type ?? "—"}</td>
+              <td class="col-color">
+                {p.color_name
+                  ? <span class="color-label">{p.color_name}</span>
+                  : <span class="muted">—</span>
+                }
+              </td>
+              <td class="col-sort muted">{p.sort_order}</td>
+              <td class="col-active">
+                {p.is_active
+                  ? <span class="badge badge-green">Actief</span>
+                  : <span class="badge badge-gray">Inactief</span>
+                }
+              </td>
+              <td class="col-act">
+                <button class="btn-edit" data-id={p.id} data-sku={p.sku_pattern}
+                  data-label={p.display_label ?? ""} data-type={p.product_type ?? ""}
+                  data-color={p.color_name ?? ""} data-sort={p.sort_order}
+                  data-active={String(p.is_active)}>
+                  Bewerken
+                </button>
+                <button class="btn-del" data-id={p.id} data-sku={p.sku_pattern}>✕</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+
+  <!-- Modal: nieuw / bewerken -->
+  <div class="modal-overlay" id="modal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">Nieuw product</h2>
+        <button class="modal-close" id="btnClose">✕</button>
+      </div>
+      <form id="prodForm" class="modal-form">
+        <input type="hidden" id="editId" />
+        <div class="form-group">
+          <label>SKU-patroon <span class="required">*</span></label>
+          <input type="text" id="fSku" required placeholder="bijv. MET-100-125" />
+          <span class="form-hint">Wordt opgeslagen in hoofdletters. Uniek per project.</span>
+        </div>
+        <div class="form-group">
+          <label>Weergavenaam</label>
+          <input type="text" id="fLabel" placeholder="bijv. Picea met kluit 100–125 cm" />
+        </div>
+        <div class="form-group">
+          <label>Producttype</label>
+          <select id="fType">
+            <option value="">— Geen —</option>
+            <option value="met_kluit">Met kluit</option>
+            <option value="zonder_kluit">Zonder kluit</option>
+            <option value="overig">Overig</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Labelkleur</label>
+          <input type="text" id="fColor" placeholder="bijv. geel" />
+          <span class="form-hint">Naam van de kleur die op het label staat</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Sorteervolgorde</label>
+            <input type="number" id="fSort" value="0" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select id="fActive">
+              <option value="true">Actief</option>
+              <option value="false">Inactief</option>
+            </select>
+          </div>
+        </div>
+        <div id="formError" class="form-error" style="display:none"></div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="btnCancel">Annuleren</button>
+          <button type="submit" class="btn-primary" id="btnSubmit">Opslaan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  const modal    = document.getElementById("modal");
+  const form     = document.getElementById("prodForm") as HTMLFormElement;
+  const editId   = document.getElementById("editId") as HTMLInputElement;
+  const btnNieuw = document.getElementById("btnNieuw");
+  const btnClose = document.getElementById("btnClose");
+  const btnCancel = document.getElementById("btnCancel");
+  const formError = document.getElementById("formError");
+  const modalTitle = document.getElementById("modalTitle");
+
+  function openNew() {
+    editId.value = "";
+    form.reset();
+    (document.getElementById("fSku") as HTMLInputElement).disabled = false;
+    modalTitle.textContent = "Nieuw product";
+    formError.style.display = "none";
+    modal.style.display = "flex";
+  }
+
+  function openEdit(btn: HTMLButtonElement) {
+    editId.value = btn.dataset.id ?? "";
+    (document.getElementById("fSku") as HTMLInputElement).value = btn.dataset.sku ?? "";
+    (document.getElementById("fSku") as HTMLInputElement).disabled = true; // SKU is immutable
+    (document.getElementById("fLabel") as HTMLInputElement).value = btn.dataset.label ?? "";
+    (document.getElementById("fType") as HTMLSelectElement).value = btn.dataset.type ?? "";
+    (document.getElementById("fColor") as HTMLInputElement).value = btn.dataset.color ?? "";
+    (document.getElementById("fSort") as HTMLInputElement).value = btn.dataset.sort ?? "0";
+    (document.getElementById("fActive") as HTMLSelectElement).value = btn.dataset.active ?? "true";
+    modalTitle.textContent = "Product bewerken";
+    formError.style.display = "none";
+    modal.style.display = "flex";
+  }
+
+  function closeModal() {
+    modal.style.display = "none";
+    form.reset();
+    (document.getElementById("fSku") as HTMLInputElement).disabled = false;
+    formError.style.display = "none";
+  }
+
+  btnNieuw?.addEventListener("click", openNew);
+  btnClose?.addEventListener("click", closeModal);
+  btnCancel?.addEventListener("click", closeModal);
+  modal?.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+
+  document.querySelectorAll(".btn-edit").forEach((btn) => {
+    btn.addEventListener("click", () => openEdit(btn as HTMLButtonElement));
+  });
+
+  document.querySelectorAll(".btn-del").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id  = (btn as HTMLButtonElement).dataset.id!;
+      const sku = (btn as HTMLButtonElement).dataset.sku!;
+      if (!confirm(`Product "${sku}" verwijderen?`)) return;
+
+      const res = await fetch(`/api/producten/${id}/delete`, { method: "POST" });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        const json = await res.json();
+        alert(json.error ?? "Verwijderen mislukt.");
+      }
+    });
+  });
+
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    formError.style.display = "none";
+    const id = editId.value;
+    const submitBtn = document.getElementById("btnSubmit") as HTMLButtonElement;
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Opslaan…";
+
+    const payload = {
+      sku_pattern:   (document.getElementById("fSku") as HTMLInputElement).value.trim(),
+      display_label: (document.getElementById("fLabel") as HTMLInputElement).value.trim() || null,
+      product_type:  (document.getElementById("fType") as HTMLSelectElement).value || null,
+      color_name:    (document.getElementById("fColor") as HTMLInputElement).value.trim() || null,
+      sort_order:    parseInt((document.getElementById("fSort") as HTMLInputElement).value) || 0,
+      is_active:     (document.getElementById("fActive") as HTMLSelectElement).value === "true",
+    };
+
+    try {
+      const url = id ? `/api/producten/${id}/update` : "/api/producten/create";
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        formError.textContent = json.error || "Er ging iets mis.";
+        formError.style.display = "block";
+      } else {
+        window.location.reload();
+      }
+    } catch {
+      formError.textContent = "Netwerkfout.";
+      formError.style.display = "block";
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Opslaan";
+    }
+  });
+</script>
+
+<style>
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .page-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #f9fafb;
+    margin: 0 0 0.25rem;
+  }
+  .page-subtitle { color: #9ca3af; font-size: 0.875rem; margin: 0; }
+
+  .btn-primary {
+    background: #10b981; color: #fff; border: none; border-radius: 0.5rem;
+    padding: 0.6rem 1.25rem; font-size: 0.875rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  .btn-primary:hover { background: #059669; }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-secondary {
+    background: #374151; color: #f9fafb; border: none; border-radius: 0.5rem;
+    padding: 0.6rem 1.25rem; font-size: 0.875rem; font-weight: 600; cursor: pointer;
+  }
+  .btn-secondary:hover { background: #4b5563; }
+
+  .alert-warning {
+    background: #78350f22; border: 1px solid #f59e0b44; color: #f59e0b;
+    padding: 1rem 1.25rem; border-radius: 0.5rem; margin-bottom: 1.5rem;
+  }
+
+  .empty-state {
+    text-align: center; padding: 4rem 2rem; color: #9ca3af;
+  }
+  .empty-state p { margin: 0 0 0.5rem; }
+  .empty-hint { font-size: 0.875rem; }
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid #374151;
+    border-radius: 0.75rem;
+  }
+  .prod-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .prod-table th {
+    background: #1f2937;
+    color: #6b7280;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.65rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #374151;
+    white-space: nowrap;
+  }
+  .prod-table td {
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid #374151;
+    color: #e5e7eb;
+    vertical-align: middle;
+  }
+  .prod-table tr:last-child td { border-bottom: none; }
+  .prod-table tr:hover td { background: rgba(255,255,255,0.025); }
+
+  .col-sku   { min-width: 160px; }
+  .col-label { min-width: 200px; }
+  .col-type  { width: 130px; }
+  .col-color { width: 120px; }
+  .col-sort  { width: 80px; text-align: right; }
+  .col-active { width: 80px; }
+  .col-act   { width: 120px; text-align: right; }
+
+  .sku-code {
+    font-family: monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #f9fafb;
+    background: #111827;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.3rem;
+  }
+
+  .color-label {
+    font-size: 0.8rem;
+    color: #f9fafb;
+  }
+
+  .muted { color: #6b7280; font-size: 0.85rem; }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .badge-green { background: #064e3b; color: #6ee7b7; }
+  .badge-gray  { background: #374151; color: #9ca3af; }
+
+  .btn-edit {
+    background: none; border: 1px solid #374151; border-radius: 0.35rem;
+    color: #9ca3af; font-size: 0.75rem; padding: 0.25rem 0.6rem; cursor: pointer;
+    margin-right: 0.5rem;
+  }
+  .btn-edit:hover { background: #1f2937; color: #f9fafb; border-color: #6366f1; }
+  .btn-del {
+    background: none; border: none; color: #4b5563; font-size: 0.85rem;
+    cursor: pointer; padding: 0.2rem;
+  }
+  .btn-del:hover { color: #ef4444; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal {
+    background: #1f2937; border: 1px solid #374151; border-radius: 0.75rem;
+    padding: 1.75rem; width: 100%; max-width: 480px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;
+  }
+  .modal-header h2 { font-size: 1.2rem; font-weight: 700; color: #f9fafb; margin: 0; }
+  .modal-close { background: none; border: none; color: #9ca3af; font-size: 1.1rem; cursor: pointer; }
+  .modal-form { display: flex; flex-direction: column; gap: 1rem; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .form-group label { font-size: 0.8rem; font-weight: 600; color: #9ca3af; }
+  .form-group input,
+  .form-group select {
+    background: #111827; border: 1px solid #374151; border-radius: 0.4rem;
+    padding: 0.5rem 0.75rem; color: #f9fafb; font-size: 0.9rem; font-family: inherit;
+  }
+  .form-group select option { background: #111827; }
+  .form-group input:focus,
+  .form-group select:focus { outline: none; border-color: #6366f1; }
+  .form-group input:disabled { opacity: 0.5; cursor: not-allowed; }
+  .form-hint { font-size: 0.75rem; color: #6b7280; }
+  .required { color: #ef4444; }
+  .form-error {
+    color: #ef4444; font-size: 0.85rem; background: #7f1d1d22;
+    border: 1px solid #ef444433; padding: 0.5rem 0.75rem; border-radius: 0.4rem;
+  }
+  .form-actions {
+    display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 0.5rem;
+  }
+</style>

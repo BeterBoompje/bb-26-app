@@ -1,0 +1,448 @@
+---
+import DashboardLayout from "../../../../../layouts/DashboardLayout.astro";
+import { requireAdmin } from "../../../../../lib/auth";
+
+const auth = await requireAdmin(Astro.cookies);
+if (!auth) return Astro.redirect("/signin");
+if (auth.forbidden) return Astro.redirect("/app");
+
+const { supabase, profile } = auth;
+
+const { data: sp } = await supabase
+  .from("staff_profiles")
+  .select("project_id")
+  .eq("id", profile!.id)
+  .single();
+
+const project_id = sp?.project_id ?? null;
+
+const { data: activeSeason } = await supabase
+  .from("seasons")
+  .select("id, year, label")
+  .eq("is_active", true)
+  .order("year", { ascending: false })
+  .limit(1)
+  .maybeSingle();
+
+let partners: any[] = [];
+if (project_id) {
+  const { data } = await supabase
+    .from("distributors")
+    .select(`
+      id, name, code, contact_name, contact_email, is_active, notes, partner_type,
+      inventory_lines (
+        id, voorraad, ingekocht, season_id,
+        inventory_adjustments ( quantity )
+      )
+    `)
+    .eq("project_id", project_id)
+    .order("name");
+
+  partners = data ?? [];
+}
+
+function calcBeschikbaar(p: any): number {
+  const lines = (p.inventory_lines ?? []).filter(
+    (l: any) => l.season_id === activeSeason?.id
+  );
+  return lines.reduce((sum: number, l: any) => {
+    const extra = (l.inventory_adjustments ?? []).reduce(
+      (s: number, a: any) => s + (a.quantity ?? 0),
+      0
+    );
+    return sum + l.voorraad + l.ingekocht + extra;
+  }, 0);
+}
+
+const PARTNER_TYPE_LABELS: Record<string, { label: string; cls: string }> = {
+  supplier:        { label: "Leverancier",            cls: "badge-blue" },
+  pickup_location: { label: "Afhaalpunt",              cls: "badge-green" },
+  both:            { label: "Leverancier + Afhaalpunt", cls: "badge-purple" },
+};
+---
+
+<DashboardLayout title="Partners" userName={profile!.full_name}>
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Partners</h1>
+      {activeSeason && (
+        <p class="page-subtitle">Seizoen {activeSeason.label}</p>
+      )}
+    </div>
+    <button class="btn-primary" id="btnNieuw">+ Nieuwe partner</button>
+  </div>
+
+  {!project_id && (
+    <div class="alert-warning">
+      Geen project gekoppeld aan uw account. Neem contact op met een beheerder.
+    </div>
+  )}
+
+  {project_id && partners.length === 0 && (
+    <div class="empty-state">
+      <p>Nog geen partners aangemaakt.</p>
+      <p class="empty-hint">Klik op "+ Nieuwe partner" om te beginnen.</p>
+    </div>
+  )}
+
+  {partners.length > 0 && (
+    <div class="dist-grid">
+      {partners.map((p: any) => {
+        const beschikbaar = calcBeschikbaar(p);
+        const lineCount = (p.inventory_lines ?? []).filter(
+          (l: any) => l.season_id === activeSeason?.id
+        ).length;
+        const typeInfo = PARTNER_TYPE_LABELS[p.partner_type ?? "pickup_location"];
+        return (
+          <a href={`/app/dashboard/admin/partners/${p.id}`} class="dist-card">
+            <div class="dist-card-header">
+              <div>
+                <div class="dist-name">{p.name}</div>
+                {p.code && <div class="dist-code">{p.code}</div>}
+              </div>
+              <div class="badges">
+                <span class={`type-badge ${typeInfo.cls}`}>{typeInfo.label}</span>
+                {!p.is_active && <span class="badge-inactive">Inactief</span>}
+              </div>
+            </div>
+            {p.contact_name && (
+              <div class="dist-contact">{p.contact_name}</div>
+            )}
+            {(p.partner_type === "pickup_location" || p.partner_type === "both") && (
+              <div class="dist-stats">
+                <div class="stat">
+                  <span class="stat-val">{beschikbaar.toLocaleString("nl")}</span>
+                  <span class="stat-label">beschikbaar</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-val">{lineCount}</span>
+                  <span class="stat-label">categorieën</span>
+                </div>
+              </div>
+            )}
+            <div class="dist-arrow">→</div>
+          </a>
+        );
+      })}
+    </div>
+  )}
+
+  <!-- Modal: nieuwe partner -->
+  <div class="modal-overlay" id="modalNieuw" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Nieuwe partner</h2>
+        <button class="modal-close" id="btnClose">✕</button>
+      </div>
+      <form id="formNieuw" class="modal-form">
+        <div class="form-group">
+          <label>Naam <span class="required">*</span></label>
+          <input type="text" name="name" required placeholder="bijv. Randwijk" />
+        </div>
+        <div class="form-group">
+          <label>Type <span class="required">*</span></label>
+          <select name="partner_type" required>
+            <option value="pickup_location">Afhaalpunt</option>
+            <option value="supplier">Leverancier</option>
+            <option value="both">Leverancier + Afhaalpunt</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Code</label>
+          <input type="text" name="code" placeholder="bijv. randwijk" />
+          <span class="form-hint">Unieke korte code (kleine letters)</span>
+        </div>
+        <div class="form-group">
+          <label>Contactpersoon</label>
+          <input type="text" name="contact_name" />
+        </div>
+        <div class="form-group">
+          <label>E-mail contactpersoon</label>
+          <input type="email" name="contact_email" />
+        </div>
+        <div class="form-group">
+          <label>Notities</label>
+          <textarea name="notes" rows="2"></textarea>
+        </div>
+        <div id="formError" class="form-error" style="display:none"></div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" id="btnCancelForm">Annuleren</button>
+          <button type="submit" class="btn-primary">Opslaan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  const btnNieuw = document.getElementById("btnNieuw");
+  const modal = document.getElementById("modalNieuw");
+  const btnClose = document.getElementById("btnClose");
+  const btnCancel = document.getElementById("btnCancelForm");
+  const form = document.getElementById("formNieuw") as HTMLFormElement;
+  const formError = document.getElementById("formError");
+
+  function openModal() { modal.style.display = "flex"; }
+  function closeModal() { modal.style.display = "none"; form.reset(); formError.style.display = "none"; }
+
+  btnNieuw.addEventListener("click", openModal);
+  btnClose.addEventListener("click", closeModal);
+  btnCancel.addEventListener("click", closeModal);
+  modal.addEventListener("click", function(e) {
+    if (e.target === modal) closeModal();
+  });
+
+  form.addEventListener("submit", async function(e) {
+    e.preventDefault();
+    formError.style.display = "none";
+    const data = Object.fromEntries(new FormData(form));
+    const btn = form.querySelector("[type=submit]") as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = "Opslaan…";
+    try {
+      const res = await fetch("/api/distributeurs/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        formError.textContent = json.error || "Er ging iets mis.";
+        formError.style.display = "block";
+      } else {
+        window.location.href = "/app/dashboard/admin/partners/" + json.distributor.id;
+      }
+    } catch {
+      formError.textContent = "Netwerkfout.";
+      formError.style.display = "block";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Opslaan";
+    }
+  });
+</script>
+
+<style>
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .page-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #f9fafb;
+    margin: 0 0 0.25rem;
+  }
+  .page-subtitle {
+    color: #9ca3af;
+    font-size: 0.875rem;
+    margin: 0;
+  }
+  .btn-primary {
+    background: #10b981;
+    color: #fff;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+  .btn-primary:hover { background: #059669; }
+  .btn-secondary {
+    background: #374151;
+    color: #f9fafb;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-secondary:hover { background: #4b5563; }
+
+  .alert-warning {
+    background: #78350f22;
+    border: 1px solid #f59e0b44;
+    color: #f59e0b;
+    padding: 1rem 1.25rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #9ca3af;
+  }
+  .empty-state p { margin: 0 0 0.5rem; }
+  .empty-hint { font-size: 0.875rem; }
+
+  .dist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .dist-card {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: border-color 0.15s;
+    position: relative;
+  }
+  .dist-card:hover { border-color: #6366f1; }
+  .dist-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    gap: 0.5rem;
+  }
+  .dist-name {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: #f9fafb;
+  }
+  .dist-code {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.2rem;
+    font-family: monospace;
+  }
+  .badges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.3rem;
+  }
+  .type-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .badge-green  { background: #064e3b; color: #6ee7b7; }
+  .badge-blue   { background: #1e1b4b; color: #a5b4fc; }
+  .badge-purple { background: #3b0764; color: #d8b4fe; }
+  .badge-inactive {
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: #374151;
+    color: #9ca3af;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+  }
+  .dist-contact {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    margin-bottom: 1rem;
+  }
+  .dist-stats {
+    display: flex;
+    gap: 1.5rem;
+  }
+  .stat { display: flex; flex-direction: column; }
+  .stat-val {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #10b981;
+  }
+  .stat-label {
+    font-size: 0.72rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .dist-arrow {
+    position: absolute;
+    right: 1.25rem;
+    bottom: 1.25rem;
+    color: #4b5563;
+    font-size: 1rem;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 0.75rem;
+    padding: 1.75rem;
+    width: 100%;
+    max-width: 480px;
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+  .modal-header h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #f9fafb;
+    margin: 0;
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+  .modal-form { display: flex; flex-direction: column; gap: 1rem; }
+  .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .form-group label { font-size: 0.8rem; font-weight: 600; color: #9ca3af; }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 0.4rem;
+    padding: 0.5rem 0.75rem;
+    color: #f9fafb;
+    font-size: 0.9rem;
+    font-family: inherit;
+  }
+  .form-group select option { background: #111827; }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: #6366f1;
+  }
+  .form-hint { font-size: 0.75rem; color: #6b7280; }
+  .required { color: #ef4444; }
+  .form-error {
+    color: #ef4444;
+    font-size: 0.85rem;
+    background: #7f1d1d22;
+    border: 1px solid #ef444433;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.4rem;
+  }
+  .form-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+  }
+</style>

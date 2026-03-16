@@ -4,7 +4,6 @@ import "../styles/theme.css";
 
 interface Props {
   title: string;
-  /** Naam van de ingelogde gebruiker (voor de nav) */
   userName?: string;
 }
 
@@ -16,42 +15,22 @@ const { title, userName } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title} — BB Dashboard</title>
+    <title>{title} — BB App</title>
   </head>
   <body>
     <div class="page-wrapper">
 
-      <!-- Top nav -->
+      <!-- Top nav (minimaal — alleen voor locatiemedewerkers) -->
       <nav class="dash-nav">
         <div class="dash-nav-inner">
           <div class="dash-nav-brand">
             <span class="dash-nav-logo">🌳</span>
-            <span class="dash-nav-title">BB Admin</span>
+            <span class="dash-nav-title">BB App</span>
           </div>
           <div class="dash-nav-links">
-            <a href="/app/dashboard/admin" class="dash-nav-link">Overzicht</a>
-            <div class="nav-group">
-              <span class="nav-group-label">Commerce</span>
-              <a href="/app/dashboard/admin/orders" class="dash-nav-link">Bestellingen</a>
-              <a href="/app/dashboard/admin/producten" class="dash-nav-link">Producten</a>
-            </div>
-            <div class="nav-group">
-              <span class="nav-group-label">Inkoop</span>
-              <a href="/app/dashboard/admin/inkoop" class="dash-nav-link">Inkoop</a>
-            </div>
-            <div class="nav-group">
-              <span class="nav-group-label">Partners</span>
-              <a href="/app/dashboard/admin/partners" class="dash-nav-link">Partners</a>
-            </div>
-            <div class="nav-group">
-              <span class="nav-group-label">Organisatie</span>
-              <a href="/app/dashboard/admin/locaties" class="dash-nav-link">Locaties</a>
-              <a href="/app/dashboard/admin/medewerkers" class="dash-nav-link">Medewerkers</a>
-            </div>
-            <div class="nav-group">
-              <span class="nav-group-label">Analytics</span>
-              <a href="/app/dashboard/admin/rapportage" class="dash-nav-link">Rapportage</a>
-            </div>
+            <a href="/app/scan" class="dash-nav-link">Scanner</a>
+            <a href="/app/dashboard/staff-location" class="dash-nav-link">Mijn locatie</a>
+            <a href="/app/dashboard/admin/orders" class="dash-nav-link">Bestellingen</a>
           </div>
           {userName && <span class="dash-nav-user">{userName}</span>}
         </div>
@@ -81,10 +60,9 @@ const { title, userName } = Astro.props;
     max-width: 80rem;
     margin: 0 auto;
     display: flex;
-    align-items: flex-end;
-    gap: 1.5rem;
-    height: 4.5rem;
-    padding-bottom: 0.5rem;
+    align-items: center;
+    gap: 2rem;
+    height: 3.5rem;
   }
 
   .dash-nav-brand {
@@ -105,32 +83,8 @@ const { title, userName } = Astro.props;
 
   .dash-nav-links {
     display: flex;
-    align-items: flex-end;
     gap: 0.25rem;
     flex: 1;
-  }
-
-  .nav-group {
-    display: flex;
-    align-items: flex-end;
-    gap: 0.1rem;
-    padding-left: 0.75rem;
-    border-left: 1px solid #374151;
-    position: relative;
-    padding-top: 1.2rem;
-  }
-
-  .nav-group-label {
-    position: absolute;
-    top: 0;
-    left: 0.75rem;
-    font-size: 0.6rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #4b5563;
-    white-space: nowrap;
-    line-height: 1;
   }
 
   .dash-nav-link {
@@ -156,7 +110,7 @@ const { title, userName } = Astro.props;
 
   .dash-main {
     padding: 2rem 0 4rem;
-    min-height: calc(100vh - 4.5rem);
+    min-height: calc(100vh - 3.5rem);
     background: #111827;
     color: #f9fafb;
   }
