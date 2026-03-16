@@ -1,0 +1,378 @@
+AI Development Protocol
+
+Astro + ClientFirst + Supabase + Shopify
+
+Use this protocol before writing any code or modifying the system.
+
+The goal is to ensure the AI agent understands the current architecture before proposing or implementing changes.
+
+⸻
+
+HARD RULE
+
+Do NOT write code immediately.
+
+Always follow this order:
+
+1 Context analysis
+2 Clarification
+3 Architecture proposal
+4 Design approval
+5 Implementation plan
+6 Code implementation
+
+Skipping steps leads to incorrect assumptions about the system.
+
+⸻
+
+Step 1
+
+System Analysis (MANDATORY)
+
+Before proposing solutions, analyze the existing project.
+
+Scan the following:
+
+Astro project
+
+Identify:
+
+pages
+layouts
+components
+server routes
+API endpoints
+
+Look for patterns such as:
+
+dashboard pages
+admin tools
+order handling
+data fetching patterns
+
+Determine whether data is fetched:
+
+server side
+client side
+via API routes
+
+⸻
+
+ClientFirst structure
+
+Inspect the CSS class structure.
+
+Confirm that:
+
+ClientFirst naming conventions are followed
+components are reusable
+utility classes are used correctly
+
+Do not introduce new class patterns unless required.
+
+⸻
+
+Supabase
+
+Analyze the database.
+
+Inspect:
+
+tables
+relations
+indexes
+RLS policies
+
+Focus especially on tables related to:
+
+orders
+locations
+inventory
+users
+scans
+pickups
+returns
+
+Determine:
+
+source of truth
+derived data
+synchronization with Shopify
+
+⸻
+
+Shopify integration
+
+Analyze how Shopify is used.
+
+Look for:
+
+Shopify API usage
+webhooks
+order syncing
+product references
+
+Identify whether Shopify is:
+
+source of order truth
+or just used for payment and checkout.
+
+⸻
+
+Step 2
+
+Clarify the Feature
+
+Ask questions one at a time.
+
+Focus on:
+
+Purpose of the feature
+Who uses it
+Admin / staff / customer
+
+Success criteria
+What must work when finished
+
+Constraints
+Performance
+Realtime requirements
+Shopify limitations
+
+Avoid making assumptions.
+
+⸻
+
+Step 3
+
+Architecture Options
+
+Propose 2–3 implementation approaches.
+
+Examples:
+
+Option A
+Astro server endpoint + Supabase query
+
+Option B
+Supabase realtime subscriptions
+
+Option C
+Shopify webhook → Supabase sync → dashboard update
+
+Explain:
+
+Pros
+Cons
+Scalability
+Complexity
+
+Provide a recommendation.
+
+⸻
+
+Step 4
+
+System Design
+
+Once the direction is chosen, describe the design.
+
+Include:
+
+Architecture
+
+How Astro, Supabase and Shopify interact.
+
+Example
+
+User action
+↓
+
+Astro API route
+↓
+
+Supabase database
+↓
+
+Optional Shopify API
+
+⸻
+
+Components
+
+List new or modified components.
+
+Examples
+
+Admin dashboard page
+Order status component
+Scan interface
+Inventory panel
+
+Follow existing Astro structure.
+
+⸻
+
+Database
+
+Define required tables or changes.
+
+Example
+
+scan_logs
+pickup_status
+location_inventory
+
+Include relationships.
+
+⸻
+
+Data Flow
+
+Explain step-by-step how data moves through the system.
+
+Example
+
+QR scan
+↓
+
+Astro endpoint receives scan
+↓
+
+Supabase verifies order
+↓
+
+status updated
+↓
+
+dashboard refresh
+
+⸻
+
+Error Handling
+
+Define behavior for:
+
+invalid order
+duplicate scan
+network failure
+Shopify API failure
+
+⸻
+
+Performance
+
+Explain strategy for:
+
+dashboard updates
+large order lists
+real-time scanning
+
+Example
+
+light polling every 5 seconds
+or Supabase realtime.
+
+⸻
+
+Testing
+
+Define how the feature will be tested.
+
+Example
+
+test order creation
+scan simulation
+status reset
+admin dashboard verification
+
+⸻
+
+Step 5
+
+Design Approval
+
+Present the full design before implementing.
+
+Wait for confirmation before writing code.
+
+⸻
+
+Step 6
+
+Implementation Plan
+
+Break implementation into steps.
+
+Example
+
+1 Create Supabase table
+2 Create Astro API route
+3 Add dashboard component
+4 Connect Shopify order reference
+5 Add polling or realtime update
+
+⸻
+
+Step 7
+
+Code Implementation
+
+Only now write code.
+
+Follow these rules:
+
+Prefer server logic in Astro routes
+
+Use Supabase as operational database
+
+Avoid direct Shopify dependency in UI components
+
+Keep Astro components small and reusable
+
+Respect ClientFirst naming conventions
+
+⸻
+
+Design Principles
+
+Prefer simple architecture
+
+Supabase = operational data
+
+Shopify = commerce layer
+
+Astro = UI and server endpoints
+
+Avoid business logic in the frontend
+
+⸻
+
+Typical System Pattern
+
+Shopify order
+↓
+
+sync to Supabase
+↓
+
+Supabase becomes operational database
+
+↓
+
+Astro dashboard reads from Supabase
+
+↓
+
+Staff actions update Supabase
+
+⸻
+
+Goal of This Protocol
+
+Ensure the AI agent:
+
+understands the project structure
+does not break existing architecture
+minimizes iteration cycles
+creates scalable features

@@ -1,0 +1,28 @@
+Name,Type,Value,Unit,Linked Variable
+Spacing/none,Size,0,rem,false
+Spacing/tiny,Size,0.125,rem,false
+Spacing/xxsmall,Size,0.25,rem,false
+Spacing/xsmall,Size,0.5,rem,false
+Spacing/small,Size,1,rem,false
+Spacing/medium,Size,2,rem,false
+Spacing/large,Size,3,rem,false
+Section Padding/small,Size,3,rem,false
+Section Padding/medium,Size,5,rem,false
+Section Padding/large,Size,8,rem,false
+Grid Columns/default-count,Number,8,,false
+Grid Columns/xsmall,Size,15,rem,false
+Grid Columns/small,Size,20,rem,false
+Grid Columns/medium,Size,25,rem,false
+Grid Columns/large,Size,30,rem,false
+Grid Columns/xlarge,Size,35,rem,false
+Grid Columns/xxlarge,Size,40,rem,false
+Gaps/small,Size,1.5,rem,false
+Gaps/regular,Size,2,rem,false
+Gaps/medium,Size,3,rem,false
+Gaps/large,Size,4,rem,false
+Spacing/xlarge,Size,4,rem,false
+Spacing/xxlarge,Size,5,rem,false
+Spacing/huge,Size,6,rem,false
+Spacing/xhuge,Size,8,rem,false
+Spacing/xxhuge,Size,12,rem,false
+Spacing/global-padding,Size,2.5,rem,false

@@ -1,0 +1,36 @@
+Name,Type,Value,Unit,Linked Variable
+Brand/blue-light,Color,#d9e5ff,,false
+Brand/blue,Color,#2d62ff,,false
+Brand/blue-dark,Color,#080331,,false
+Brand/pink-light,Color,#ffaefe,,false
+Brand/pink,Color,#dd23bb,,false
+Brand/pink-dark,Color,#3c043b,,false
+Brand/green,Color,#cef5ca,,false
+Brand/green-darker,Color,#114e0b,,false
+Brand/yellow,Color,#fcf8d8,,false
+Brand/yellow-darker,Color,#5e5515,,false
+Brand/red,Color,#f8e4e4,,false
+Brand/red-darker,Color,#3b0b0b,,false
+Neutral/transparent,Color,transparent,,false
+Neutral /black,Color,"hsla(0, 0.00%, 0.00%, 1.00)",,false
+Neutral /white,Color,"hsla(0, 0.00%, 100.00%, 1.00)",,false
+Neutral/neutral-lightest,Color,#eee,,false
+Neutral/neutral-lighter,Color,#ccc,,false
+Neutral/neutral-light,Color,#aaa,,false
+Neutral /neutral,Color,#666,,false
+Neutral/neutral-dark,Color,#444,,false
+Neutral/neutral-darker,Color,#222,,false
+Neutral/neutral-darkest,Color,#111,,false
+Font Weight/thin,Number,100,,false
+Font Weight/xlight,Number,200,,false
+Font Weight/light,Number,300,,false
+Font Weight/normal,Number,400,,false
+Font Weight/medium,Number,500,,false
+Font Weight/semi-bold,Number,600,,false
+Font Weight/bold,Number,700,,false
+Font Weight/xbold,Number,800,,false
+Font Weight/black,Number,900,,false
+Font Family/heading,FontFamily,system-ui,,false
+Font Family/body,FontFamily,system-ui,,false
+Focus/width,Size,0.125,rem,false
+Focus/offset,Size,0.125,rem,false

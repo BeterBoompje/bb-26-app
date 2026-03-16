@@ -1,0 +1,17 @@
+Name,Type,Value,Unit,Linked Variable
+Max Width/xxsmall,Size,12,rem,false
+Max Width/xsmall,Size,16,rem,false
+Max Width/small,Size,20,rem,false
+Max Width/medium,Size,32,rem,false
+Max Width/large,Size,48,rem,false
+Max Width/xlarge,Size,64,rem,false
+Max Width/xxlarge,Size,80,rem,false
+Container/small,Size,48,rem,false
+Container/medium,Size,64,rem,false
+Container/large,Size,80,rem,false
+Border Width/thin,Size,1,px,false
+Border Width/normal,Size,0.125,rem,false
+Border Width/bold,Size,0.25,rem,false
+Border Radius/small,Size,0.25,rem,false
+Border Radius/medium,Size,0.5,rem,false
+Border Radius/large,Size,1,rem,false

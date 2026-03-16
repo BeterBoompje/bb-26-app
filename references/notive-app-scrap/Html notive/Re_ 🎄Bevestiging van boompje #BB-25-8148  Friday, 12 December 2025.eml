@@ -1,0 +1,937 @@
+Received: from mx.transip.email (mail-northeuropeazolkn190120002.outbound.protection.outlook.com [IPv6:2a01:111:f403:d200::2])
+	by mx2.mail.transip.io (Postfix) with ESMTP id 4dTnxD5ztSzNRQ30
+	for <support@beterboompje.nl>; Sun, 14 Dec 2025 17:01:20 +0100 (CET)
+Received: from mx2.mail.transip.io ([10.100.4.6])
+	by mdaproxy0.mail.transip.nl (Dovecot) with LMTP id YaZwC1PfPmlvBAAACLNU/A
+	; Sun, 14 Dec 2025 17:01:23 +0100
+Received: from AM6PR02MB5543.eurprd02.prod.outlook.com
+ ([fe80::cd22:8770:7863:e55f]) by AM6PR02MB5543.eurprd02.prod.outlook.com
+ ([fe80::cd22:8770:7863:e55f%5]) with mapi id 15.20.9388.013; Sun, 14 Dec 2025
+ 16:01:19 +0000
+Received: from AM6PR02MB5543.eurprd02.prod.outlook.com (2603:10a6:20b:e2::10)
+ by AM9PR02MB7058.eurprd02.prod.outlook.com (2603:10a6:20b:26f::24) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.9412.13; Sun, 14 Dec
+ 2025 16:01:19 +0000
+Received: from mdaproxy0.mail.transip.nl ([10.100.4.6])
+	by mda449.mail.transip.io with LMTP
+	id IEX4C1PfPmmmMgAANyKtNA
+	(envelope-from <acgelder@hotmail.com>)
+	for <support@beterboompje.nl>; Sun, 14 Dec 2025 17:01:23 +0100
+From: "Annemieke Gelder" <acgelder@hotmail.com>
+To: "BeterBoompje" <support@beterboompje.nl>
+References: <E1020004-18797E41662812B7-9C8E5C5C@shopify.com>
+In-Reply-To: <E1020004-18797E41662812B7-9C8E5C5C@shopify.com>
+Subject: =?utf-8?Q?Re:_=F0=9F=8E=84Bevestiging_van_boompje_#B?=
+	=?utf-8?Q?B-25-8148__Friday=2C_12_December_2?=
+	=?utf-8?Q?025?=
+Date: Sun, 14 Dec 2025 17:01:19 +0100
+Message-ID: <AM6PR02MB55436DF52572046833717D41D0ACA@AM6PR02MB5543.eurprd02.prod.outlook.com>
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_000_00A8_01DC6D3D.D874D400"
+X-Mailer: Microsoft Outlook 16.0
+Thread-Index: AQFo+tFBgnlHkn/uWQNd2q1UZC/QOAJf3Yq7
+X-MS-Has-Attach: 
+X-MS-TNEF-Correlator: 
+x-ms-exchange-messagesentrepresentingtype: 1
+x-ms-publictraffictype: Email
+x-ms-traffictypediagnostic: AM6PR02MB5543:EE_|AM9PR02MB7058:EE_
+x-ms-office365-filtering-correlation-id: 9d6df841-7aac-45d9-af35-08de3b2a04f1
+x-microsoft-antispam: BCL:0;ARA:14566002|461199028|31061999003|8062599012|9000799056|15030799006|15080799012|39105399006|1680799066|41001999006|9400799040|12050799012|19110799012|8060799015|12121999013|440099028|4302099013|3412199025|10035399007|40105399003|102099032|1602099012;
+x-microsoft-antispam-message-info: =?utf-8?B?SGtqa1NUSGE1c0dsNzlraTFyekJML2p1L0k2SENzSjU1M2tRRmdFOGZ3L0k0?=
+ =?utf-8?B?WjdBMTNra3Fid1ZXYlNpNVNuSjlnc2lWdSt5cXVESWpEeTF3dmU1VlpYdzZU?=
+ =?utf-8?B?b1EzZWV3OXNOL3JtRWFrMktoRnI5NEdNc2lNVVNkVG5KM3diS0JCaUJtOEhN?=
+ =?utf-8?B?L251UVFlMTU2TjRBVERlQmIyK1h2WDE4UTFQSVhoZzU1QldVWDZTc3A5ZFlI?=
+ =?utf-8?B?M2o3R2htSmRrSGYyV1Vta3hmd1hYendSWGtxNzlIWXQra0wrNjB2bGhUenhT?=
+ =?utf-8?B?NFJZWUgzTTV0ZWNybGhSOE5iZXV4b0JqS04zNVhJdHlTVnkydmZ2elJTQ1lX?=
+ =?utf-8?B?N09ueUpwY1dpQWJWME9QRXAxWDNUMlhyam93OXlWNTkrRUNQOHV6a2k1elo1?=
+ =?utf-8?B?ZTBxcUxGUHJWdkVpTnRWUHFIWWtqVUl5RFZjU01pZjZEeEhZNEIrb21ob1Fy?=
+ =?utf-8?B?Mm0wdThENnNXTnIrOE5WR05xWm4rOEVCTERSbFZyb0I3OEpqOHRCMEQ4ck0y?=
+ =?utf-8?B?bzhOVEQ4UXJPSVJRZE16M2FqWG1nQldUa09RMjlUbzBnalZzZDJHdXBZem52?=
+ =?utf-8?B?RStrTGppaHNxUjZpUW0xSUwrL1hLUDVZTS9ObXE5WlFBT0xEaEdsSU1CWTd5?=
+ =?utf-8?B?eTlEYXpsdmZGZGhuZ1pjWHlLQXgvdU1JcmNHUmcwUFczaERJaE45WlBVYS81?=
+ =?utf-8?B?UDl4Y3ZsVFJmcHNnbHVnK0poMC9PMzM5NEpXenhOaDFIdjFNU2VCWFdlYjhZ?=
+ =?utf-8?B?bnRMajZxRjZ6Qlh
+	JNzlNSWpSL2VxU0hvaVE0Y1Y0T3FNWnl1YlBkMEp1Vy82?=
+ =?utf-8?B?MTRJd29qd2xWQUUydFFwd0dLNE1EWWVmc0xLelRMVXJMclhESnpsYjJPM1FE?=
+ =?utf-8?B?eWZXbUJlS084UHdCTFNwblpmNWxYVk9rZUR1aWt3ZHZOaFQ3ajl5MFhuaHBD?=
+ =?utf-8?B?cVVzM1JCcitadHR1RmhWN0JwcE5XLzhTSWJSN1FJcytqaDNnRnY1M0h4elJD?=
+ =?utf-8?B?ZnJacTd1YU42NFZpRC9xZjBSUlR6L2U2ekczK0lTdlhCUHhEbkJPUW5iN3F1?=
+ =?utf-8?B?ZDJZU2xkQUM4cjhWVWlHLzhhL2lYdzgvOWhmNUpNaGV2TUVtUnBSRGcyeitv?=
+ =?utf-8?B?UE9VK2dHcXNwR0d6M051K1FsaHBiampWZU10NGRNcEt0TmxPQ3N0bm1wM2lE?=
+ =?utf-8?B?L0lGODBzKzU5MjE1UTdBalNZd1pRbG1nYXZWM2xoTmxza0pqMWZ5Q3gzbkRz?=
+ =?utf-8?B?elhjOWlMdUdENHdISzJCczBEd1hiR3hWUStrTm92eE54dm45OFJvVzlqK0V4?=
+ =?utf-8?B?YXkxekF6NmplWWNvQkdRbjZEN1BDRjA2dnV0WEZLSzFJQU5LcXZNZUpud3o4?=
+ =?utf-8?B?WkFybGlGNjV0RmZVekozbXBlaEt5N0FUTWFMdFpYSHdDMTlQUEtKQUJ0ZmhW?=
+ =?utf-8?B?U0RNWmVJNjF2QzZLUjVrZ0loczlIK09vZmN1c2tDQ1dLa0tqTEh1Y2M1YnR6?=
+ =?utf-8?B?RDF1Qi9XY3dnRWxYVXRBZFhXMUc3UWUvcDlRV05rck14SUlZaUtJWlZLWjdv?=
+ =?utf-8?B?K2swRzd0NERpL0p3R1hUTGRQR3N1UnNsZVVQS0V6
+	MFFUc0RCRGEwMHJrVFpW?=
+ =?utf-8?B?b3JrbFYzVmVvbzFWL0lEY1pUUDlMN3BYdnZFeWVEdzFRVDZsTkpRMUo3VTFT?=
+ =?utf-8?B?UXBWMVNhTEVhMDRwY3BIR2RzL3RjWmFvNHp5NERsUjkzUHU1dWMzOGpqelpa?=
+ =?utf-8?B?ZDZtdnEzeUdvK1U3T3FpNlp4UEE5SCs4SDU2dXBweVdlTTdURzRKdzd1d0RI?=
+ =?utf-8?B?emNobjcwcGl5QUQxZ1FhUVVKeDQ5R3NWb0JoVWx4RlVRVlZ2SkJTTGZwbWM1?=
+ =?utf-8?B?L3cyK2F4U25xR1VENXVHazVFaVVwMDNOYkxSVnl0aFovLy9TR0xjaGNKbXBi?=
+ =?utf-8?B?U2V6Nk5DdnM4REJnRnNOUUlEcUE3bFEwdmJnWGM4KzNvcXowMlMzL2M1MHlC?=
+ =?utf-8?B?d0pmcWJFSWRBPT0=?=
+x-ms-exchange-antispam-messagedata-chunkcount: 1
+x-ms-exchange-antispam-messagedata-0: =?utf-8?B?ckt1TkNmWnIydnFFNmpSVkZSYnhDVTBCS1NZNVBvUmJaN1BrVTRmZUZjZ2h4?=
+ =?utf-8?B?Z2RWelRZRytmaGFweE5kdjk2WmtTRWVlNjVFZkltdVlobHNKMWoxK3NVSy9l?=
+ =?utf-8?B?QksrVTY5Wmc5d0lFMTN6MEhJRThNTlZHMTRlZHdpZERmRFhvSlFMSlZZanlp?=
+ =?utf-8?B?dFcxNHIzTUVGZFZJeDFZNEhCZzNBb2lHeVFlcHJiS0JQNVhQdWVWTTJqYS93?=
+ =?utf-8?B?TFBvK2dSZkEyb2J6V3VraHpvZHpTeHE3Zlg1bGpVT3hycUFFbldURTYwRGJu?=
+ =?utf-8?B?L0MxS2ZUeGZ4ZkFiaWg3TlAramp6ZEZtbjBIRjJrbmhQVE82Smk1SExlRnRo?=
+ =?utf-8?B?SjVVdmovQ0xFdjR5ajNrZGF3VXNzaUVMSjRTR0VZOVpZb3BaYyt3YXhITzdq?=
+ =?utf-8?B?TTBWQlFaOWE2eE9wUktNR1RUZUFaVXphK3F6QzRmK3BtaGZDOFRRMDcwakJa?=
+ =?utf-8?B?WUprbGJWU2dic0loRXAxeUx5c09pMTdvT2FzUVdpNFI2aTR6dGV0NmlxUW9n?=
+ =?utf-8?B?TGRPZG5HaVhYL2RWeTBGZks3djh6RCtXQjdobzRIcFcvTzhZbjltellHRUFL?=
+ =?utf-8?B?NkxBUEFZdmRvYVMzT1dvMVI3MndzQ2M3TytwQ1RyVXdMVWxESU54djc5L2kv?=
+ =?utf-8?B?V2lVOEl0TUJJV094ZzE3b0swUFJYQUR1Q2dzRHJEcFJNb0tNOXlwSk5VSmFt?=
+ =?utf-8?B?RWFmaHBRNHpJTW5hNzFndFdrcVk2eEdGWUdWM2crMnp0VFE1SmNGcGhabUVC?=
+ =?utf-8?B?cUxyYUowWlBxUzl
+	tN0RoTkFtV1NwK1FHMHFiZkxxSjN0WG9WSmpJSVF5TVpa?=
+ =?utf-8?B?TU9TUHV5M290ZXZtdU9BKzJHbTVVS2w4SkpkRGhhT2VNSG9nSXdIREpVeURM?=
+ =?utf-8?B?ZlJVZlhkNkduQWJWdTI1WTZTNTZJV1lIcUpOTVF5eG9LVDBEdXloalpaS2lB?=
+ =?utf-8?B?c0tJWHBrWUJiTmZ5dnl3YVpyQXY1RGo0RWlBQU5qMTdnSVBoZ283bjBzY282?=
+ =?utf-8?B?RVNiN2RFSzFRNGlEbGNIdmNsOEgzd2tJM05QK2pJR1o0RmZxVUtIQW5iUWo2?=
+ =?utf-8?B?RkZZY3FwdTNVZnlXc1g0bFJySXNsUW9tcE1xKzZpUUhTekd2RElmTnd0TUV3?=
+ =?utf-8?B?TnJ4NFJUaTdXUkpCR0JhZGpiVDZINHB3cnpHU29pTmVFMlRPYTUvR01QbTlF?=
+ =?utf-8?B?N0EvM1ZMb2kwTWxyam1pR1VIK05kRDNMMG12WHZabStsczh6MEU1aHVjRWtW?=
+ =?utf-8?B?cExQdkdvcEo0cnNudEpYZ295bGsvcGxkVE8wMGQ1d1lpdDQyUCt6UDlMTXJK?=
+ =?utf-8?B?cTBBMVBnS0NYK0kwbUJJN0J2blBtSXR2aW8rem9KcDFtcU9xUzNsMHhucVZx?=
+ =?utf-8?B?SklCcjk0V1dKb0tyeC9peHNiTzIrQlJLVEZCVkJEWnhBSUVqcHBoVGYzdGhE?=
+ =?utf-8?B?Nk1ObFdSZURyWlF2eWRTYngwSzZjRUlQSFNoOVdNRjJwMHJnMVZYeFZEbWV1?=
+ =?utf-8?B?Rzk4YnlLMmFxdW5LMEthazNWdFQyZHV2SkhjOHJXbjY1b1ZBRkExeDl0M2F2?=
+ =?utf-8?B?NFErbjVGWmEwV25WeThEOFUzV3ZVYTNoTE0rMDZX
+	NEt1Z0FXVmlLdlhZVm0z?=
+ =?utf-8?B?RWlPNktuMmNuaWJhRkdlOFBhZnJicXlJYVdIQ1Q4VXV6YkpiWHpYWDNoNG1q?=
+ =?utf-8?B?RUkrRjNvQzBwNVBBT1czVUJTejRJMmNjRDRaY3Vqald3L01uRXlRU1BnPT0=?=
+X-OriginatorOrg: sct-15-20-8534-20-msonline-outlook-5faa0.templateTenant
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-AuthSource: AM6PR02MB5543.eurprd02.prod.outlook.com
+X-MS-Exchange-CrossTenant-RMS-PersistedConsumerOrg: 00000000-0000-0000-0000-000000000000
+X-MS-Exchange-CrossTenant-RMS-PersistedConsumerOrg: 00000000-0000-0000-0000-000000000000
+X-MS-Exchange-CrossTenant-Network-Message-Id: 9d6df841-7aac-45d9-af35-08de3b2a04f1
+X-MS-Exchange-CrossTenant-originalarrivaltime: 14 Dec 2025 16:01:19.0265
+ (UTC)
+X-MS-Exchange-CrossTenant-fromentityheader: Hosted
+X-MS-Exchange-CrossTenant-id: 84df9e7f-e9f6-40af-b435-aaaaaaaaaaaa
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AM9PR02MB7058
+X-Report-Abuse-To: abuse@transip.nl
+X-Spam-Flag: NO
+X-Spam-Score: -1.00
+X-Scanned-By: ClueGetter at mx2.mail.transip.io
+X-OlkEid: 00000000D46E9336B404A54F91BB4B203AC3C375070034AD76187591974DBF6C4F76951C873A0100EA29000000001B0252A80DB11845ABBF1A5F4EBB975E0000000076970000B73A0C7C0E76134AA219D9E58F9CE3F0
+
+This is a multipart message in MIME format.
+
+------=_NextPart_000_00A8_01DC6D3D.D874D400
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Beste BeterBoompje team
+
+Met veel vreugde een herplantbare kerstboom bij jullie besteld.
+
+Wat een tegenvaller om bij het ophalen van de boom er achter te komen dat de 
+boom van het formaat dat ik besteld had er niet meer was en slechts nog 
+keuze was uit 2 bomen van een kleiner formaat.
+Gezien de timing geen andere optie dan een van deze mee te nemen.
+
+Bij thuiskomst en 't opzetten van de boom erachter te komen dat de conditie 
+erg slecht is. Ik vraag me stellig af of deze boom de kerst gaat halen, laat 
+staan dat hij terug geplant kan worden.... met name dat de boom pas in de 2e 
+week van januari pas weer geretourneerd kan worden.
+
+'t Team bij de ophaal locatie van Pluk te Den Haag heeft de QR code niet 
+gescand....
+
+Bij deze wil ik u graag verzoeken een korting toe te passen, en het 
+statiegeld ook te retourneren, gezien er geen kans is dat deze boom in een 
+fatsoenlijke staat retour kan over 4 weken.
+
+Ik hoor graag spoedig van uw team.
+
+Met vriendelijke groet,
+Annemieke Gelder
+  _____
+
+From: BeterBoompje <support@beterboompje.nl>
+Sent: Wednesday, 19 November 2025 20:12
+To: acgelder@hotmail.com <acgelder@hotmail.com>
+Subject: 🎄Bevestiging van boompje #BB-25-8148 Friday, 12 December 2025
+
+
+
+
+  <https://cdn.shopify.com/s/files/1/0611/1618/6867/email_settings/Logo_Bomen_border.png?230> 
+Bestel #BB-25-8148
+
+
+
+Bedankt dat je meedoet met onze missie!
+
+
+
+Ophaalgegevens:
+
+
+*	Ophaallocatie: DEN HAAG - Pluk!
+*	Adres: Loosduinse Hoofdstraat, Den Haag, 2552 AV
+*	Ophaaldatum: Friday, 12 December 2025
+*	Ophaaltijd: 12:40 PM
+
+Je pickup QR-code:
+
+
+  <https://portal-beterboompje.mt02.notive.app/api/pickup-qr?code=10459819639107>
+
+Vergeet niet deze QR-code mee te nemen naar de ophaallocatie.
+
+👉 Download PDF Factuur
+
+
+
+Je bestelling bekijkenof 
+<https://winkel.beterboompje.nl/_t/c/v3/AAAaCa9aAOKxnPS0-5buMjGLFZ7Jy7EGBYxJkXczV6BFj0BKVVHEBv3bxhcLoGHgXspj3ULir26f6DeLpo10cdhhMHJ6D7Jzc1qP4ooVlDPTV5tBElUjmJeKSFYuy2jbZdHR4UTX0NNQKX3iw_cq4X_W7AbCAt35wItb6o-SOD0kCBjlInTLLZ9wOK_OOCOBbzg6aLr8xF5GbxcoQmncF4WDt7JbZh4-Hy16H4q1C0aJGXEfcIxWKENMOlPuc0vJNfInuWJKdZAa9WYfApUCx6L2Eii_Uml0021iPVfxfo7KFse4tlIVfg2m9JfmOZ6Oi_NiLm_ZggDtfpPp4xp2Qj-bqKDVkgozCuGkx4k=> 
+Bezoek onze winkel
+
+
+
+Besteloverzicht
+
+
+
+  <https://cdn.shopify.com/s/files/1/0611/1618/6867/files/BB_PICKUP_MET_175-200_6e3044ab-ebc4-40f4-ad78-5dd27fcedc8e_compact_cropped.jpg?v=1762464922> 
+Den Haag Pluk - BB met kluit (incl. €10 borg) × 1
+175-200 cm
+
+€68,95
+
+
+
+Subtotaal
+
+€68,95
+
+Verzending
+
+€0,00
+
+Btw
+
+€5,69
+
+Tip
+
+€3,45
+
+Totaal
+
+€72,40 EUR
+
+
+
+Aangepaste informatie
+
+
+
+
+Factuuradres
+
+
+Annemieke Gelder
+Maziestraat 2-A
+2514 GT Den Haag
+Nederland
+
+
+
+Betaalmethode
+
+
+  <https://cdn.shopify.com/shopifycloud/shopify/assets/themes_support/notifications/generic-229db4a6cffbab8929ead62830dd63e0f6c42bcd74e5e55c8f2aef84fd97cf18.png> 
+eindigt op •••
+
+
+
+Als je vragen hebt, kun je deze e-mail beantwoorden of ons e-mailen op 
+<mailto:support@beterboompje.nl> support@beterboompje.nl
+
+  <https://cdn.shopify.com/shopifycloud/shopify/assets/themes_support/notifications/spacer-1a26dfd5c56b21ac888f9f1610ef81191b571603cb207c6c0f564148473cab3c.png>
+
+------=_NextPart_000_00A8_01DC6D3D.D874D400
+Content-Type: text/html;
+	boundary="_000_AM6PR02MB55436DF52572046833717D41D0ACAAM6PR02MB5543eurp_";
+	charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+<html>
+<head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; =
+charset=3Dutf-8">
+<style type=3D"text/css" style=3D"display:none;"> P =
+{margin-top:0;margin-bottom:0;} </style>
+</head>
+<body dir=3D"ltr">
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+Beste BeterBoompje team</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+<br>
+</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+Met veel vreugde een herplantbare kerstboom bij jullie besteld.</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+<br>
+</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+Wat een tegenvaller om bij het ophalen van de boom er achter te komen =
+dat de boom van het formaat dat ik besteld had er niet meer was en =
+slechts nog keuze was uit 2 bomen van een kleiner formaat.</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+Gezien de timing geen andere optie dan een van deze mee te =
+nemen.&nbsp;</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+<br>
+</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+Bij thuiskomst en 't opzetten van de boom erachter te komen dat de =
+conditie erg slecht is. Ik vraag me stellig af of deze boom de kerst =
+gaat halen, laat staan dat hij terug geplant kan worden.... met name dat =
+de boom pas in de 2e week van januari pas weer geretourneerd
+ kan worden.</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+<br>
+</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+'t Team bij de ophaal locatie van Pluk te Den Haag heeft de QR code niet =
+gescand....</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+<br>
+</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+Bij deze wil ik u graag verzoeken een korting toe te passen, en het =
+statiegeld ook te retourneren, gezien er geen kans is dat deze boom in =
+een fatsoenlijke staat retour kan over 4 weken.</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+<br>
+</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+Ik hoor graag spoedig van uw team.</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+<br>
+Met vriendelijke groet,</div>
+<div style=3D"font-family: Calibri, Helvetica, sans-serif; font-size: =
+12pt; color: rgb(0, 0, 0);" class=3D"elementToProof">
+Annemieke Gelder</div>
+<div id=3D"appendonsend"></div>
+<hr style=3D"display:inline-block;width:98%" tabindex=3D"-1">
+<div id=3D"divRplyFwdMsg" dir=3D"ltr"><font face=3D"Calibri, sans-serif" =
+style=3D"font-size:11pt" color=3D"#000000"><b>From:</b> BeterBoompje =
+&lt;support@beterboompje.nl&gt;<br>
+<b>Sent:</b> Wednesday, 19 November 2025 20:12<br>
+<b>To:</b> acgelder@hotmail.com &lt;acgelder@hotmail.com&gt;<br>
+<b>Subject:</b> =F0=9F=8E=84Bevestiging van boompje #BB-25-8148 Friday, =
+12 December 2025</font>
+<div>&nbsp;</div>
+</div>
+<style>
+<!--
+div
+	{margin:0}
+h1 a:hover
+	{font-size:30px;
+	color:#333}
+h1 a:active
+	{font-size:30px;
+	color:#333}
+h1 a:visited
+	{font-size:30px;
+	color:#333}
+a:hover
+	{text-decoration:none}
+a:active
+	{text-decoration:none}
+a:visited
+	{text-decoration:none}
+a:hover
+	{color:#7673d4}
+a:active
+	{color:#7673d4}
+a:visited
+	{color:#7673d4}
+-->
+</style>
+<div style=3D"margin:0">
+<meta name=3D"viewport" content=3D"width=3Ddevice-width">
+<table class=3D"x_body" style=3D"height:100%!important; =
+width:100%!important; border-spacing:0; border-collapse:collapse">
+<tbody>
+<tr>
+<td style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<table class=3D"x_header x_row" style=3D"width:100%; border-spacing:0; =
+border-collapse:collapse; margin:40px 0 20px">
+<tbody>
+<tr>
+<td class=3D"x_header__cell" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<center>
+<table class=3D"x_container" style=3D"width:560px; text-align:left; =
+border-spacing:0; border-collapse:collapse; margin:0 auto">
+<tbody>
+<tr>
+<td style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<table class=3D"x_row" style=3D"width:100%; border-spacing:0; =
+border-collapse:collapse">
+<tbody>
+<tr>
+<td class=3D"x_shop-name__cell" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<img alt=3D"BeterBoompje" width=3D"180" =
+src=3D"https://cdn.shopify.com/s/files/1/0611/1618/6867/email_settings/Lo=
+go_Bomen_border.png?230">
+</td>
+<td class=3D"x_order-number__cell" align=3D"right" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; =
+text-transform:uppercase; font-size:14px; color:#999">
+<span class=3D"x_order-number__text" style=3D"font-size:16px">Bestel =
+#BB-25-8148 </span>
+</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+</center>
+</td>
+</tr>
+</tbody>
+</table>
+<table class=3D"x_row x_content" style=3D"width:100%; border-spacing:0; =
+border-collapse:collapse">
+<tbody>
+<tr>
+<td class=3D"x_content__cell" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding-bottom:40px; =
+border-width:0">
+<center>
+<table class=3D"x_container" style=3D"width:560px; text-align:left; =
+border-spacing:0; border-collapse:collapse; margin:0 auto">
+<tbody>
+<tr>
+<td style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<h2 style=3D"font-weight:normal; font-size:24px; margin:0 0 =
+10px">Bedankt dat je meedoet met onze missie!
+</h2>
+<p style=3D"color:#777; line-height:150%; font-size:16px; margin:0"></p>
+<h3 style=3D"font-weight:normal; font-size:20px; margin:0 0 =
+25px">Ophaalgegevens:</h3>
+<ul>
+<li><strong style=3D"font-size:16px; color:#555">Ophaallocatie:</strong> =
+DEN HAAG - Pluk!</li><li><strong style=3D"font-size:16px; =
+color:#555">Adres:</strong> Loosduinse Hoofdstraat, Den Haag, 2552 =
+AV</li><li><strong style=3D"font-size:16px; =
+color:#555">Ophaaldatum:</strong> Friday, 12 December =
+2025</li><li><strong style=3D"font-size:16px; =
+color:#555">Ophaaltijd:</strong> 12:40 PM</li></ul>
+<p style=3D"color:#777; line-height:150%; font-size:16px; =
+margin:0"><strong style=3D"font-size:16px; color:#555">Je pickup =
+QR-code:</strong></p>
+<br>
+<img alt=3D"QR Code voor bestelling 10459819639107" =
+src=3D"https://portal-beterboompje.mt02.notive.app/api/pickup-qr?code=3D1=
+0459819639107">
+<p style=3D"color:#777; line-height:150%; font-size:16px; =
+margin:0">Vergeet niet deze QR-code mee te nemen naar de =
+ophaallocatie.</p>
+<p style=3D"color:#777; line-height:150%; font-size:16px; margin:15px 0 =
+0">=F0=9F=91=89 <a target=3D"_blank" =
+href=3D"https://winkel.beterboompje.nl/_t/c/v3/AACOB68pLuzebPDA0MuST53gvR=
+VlgUh3i7ZQeG5A4b9uZLrrHUCltTgHVBywzyXVpRjZ-zrm0XJw9t3oxQUKoout7HUlc48hPam=
+0WiO_Dhl_Z9EpwK91b-jiOEsSkOgqVCf6uIaOfzu1xA0wMQn-mvQ1ifSExdZzGXmfoPCrwHxn=
+CAkyA9M3vk2bx5yi2hLOROp7VM7K91slnvXrpCZVLBot_JXAteOzN5XYR37MoyQumpBHAiv5S=
+lein_B3RrOB-shMLC4u6FBDfnGTo_jSJQxTJaCiTOi0z8w41T8llNgM8C8IBzodpxmkimxNsb=
+qDDijLSPDKNY7kP5S8nEpRlghiQPYtTuWU1oABYj3fMuOKflOInNbtW3msUUWF8a9o_9rIqvM=
+M5KMRylGx5gmoREkAdZNmQz7tXOOm8xEe9QZEOcZctDhmK7zC3YqwNkPWEOzzLkpKGvxRLgcx=
+_gQTpT2B2kg2" style=3D"font-size:16px; text-decoration:none; =
+color:#7673d4">
+Download PDF Factuur</a></p>
+<table class=3D"x_row x_actions" style=3D"width:100%; border-spacing:0; =
+border-collapse:collapse; margin-top:20px">
+<tbody>
+<tr>
+<td class=3D"x_empty-line" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; line-height:0em">
+&nbsp;</td>
+</tr>
+<tr>
+<td class=3D"x_actions__cell" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<table class=3D"x_button x_main-action-cell" style=3D"border-spacing:0; =
+border-collapse:collapse; float:left; margin-right:15px">
+<tbody>
+<tr>
+<td class=3D"x_button__cell" align=3D"center" bgcolor=3D"#7673d4" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; border-radius:4px">
+<a =
+href=3D"https://winkel.beterboompje.nl/_t/c/v3/AAAeAoBjVv25i-W8Z2xGTMD6V6=
+AUU_Yo-_xDZefZbOA8V6oXx2AVFgbxkmAT7WT9nKc0xw-vCXz4ovf6d_YTqyIbPZCclyfbo6C=
+0ZDMefOnkTlCXS1rYIS-yMGZqQGPLG-u6-G1_3Zoc2N5zmbXupStAa_elrJ9LiYW3eqh9gDvp=
+1Ow6tCtz9-WNFpYpaDCOCRX27Hi8nZVAWYSXo8pf5qVy7xEwBpJzgOuapibQxCPms5MKvMdid=
+r_b5d_ZT09UxexKLzq4m4SQPlErFLDkHBqZDpSDi9Tm7EQ08p7O6CKp8i14wXFyYgeGJJrviW=
+DmSmwZiHw-zpe8UnlYIZfAmsrwL5cKoljPrSkvvhneJcT9uFpnQaNHkv4ze_cBSKpYaA0zks8=
+ErbCRff7C-Ax9-HIrZ3nFye-QYfbaK98zIb0QECcT6a9w5Lq2So7T7IeVQgwX4rWikRCWSEXj=
+CBeye9r9fmT6ZqBC28JSEKgcn1SHGT5zHXdWmCqLJTrm7oL1dTJBtqPFHirn5bfhFHC-Dr4gp=
+5B5kr1CmH0uzMliRjdTrw1f4TgEvsio6E_hCM_92rKyceDEaGTLlHftBkDrWKPt_2NIrN6eTd=
+l07b4mPgRs5CTymM9UW0h5N4kkvKQILoVkwBXeFl5Bsg6eyEv7nyB74Qe64muu3Ot33EZlZeG=
+YFV4Oz2As-lXpW88NL5AL8V1SRal6KRbBYbVqWW-vu74OcjJyIlDJ7gTSTJY05fpB6_HurUN2=
+epyRPvbEaapMBGIQ7s5nDakfJN2rNxNpfGoNYYMB6pBYwjKph_Pkh0zKDd794AH9EuERRLwGy=
+Pa74t8jENK5pbXRK7xelnEqznF7mz9esRSjba96fYE45FQTY0mgysBRvrEnyxy3o5cZo0HUdj=
+iCwzjQphoiICrBJ7pdKe8ngMCsaRVI4gghFh6DRnJO92aBQoBVplk9zr3Avv5nV_HHMgbCzXI=
+rSEuc4x_mChz5vGYngE2UkAu58hVkXn8mRiBkUOM9mQdBxk2FCBwpFrEBseIdWIsgbKGHJUmL=
+FI4_ec72-u1PN8q8RB2_2jipG7UQyzdvaV7XNIiT8pXdCngTW6ZsCrpM8fhumSOXhXDCuSOYr=
+xBC0A103tgXsBx-EVuCWG3yqr0RW3Jw2TOGna-j1Qs7rCFJtjpXVZe1mKUso8PAwRE8xh2trS=
+ADLFGeWtZ579ieNggKMAGMELdDg1OZ0S4fQVxKqvwMiAQIQygFFvN12M2Nau67oir1wtZ_xCi=
+PkljMRfxfICGM2rv-E3oscWSxmHhUBtGsYvytBk78byo5qisUBZHPnb2gJlLWK6Og7urcR08_=
+2_mnEEqdfRxyHiPYw7ZzP0rdpQs_r2IndrsYJOapZiOOv6eiEnUDw_u2W5KH2zh-kkhbl6EKq=
+V7F9N1ZYuYb2Ndp03bA3yy7odkwOTek-6viPPUk8oJqGC-bum_BXnxwgpaZlL29ENwgS2bmtW=
+wfIV_ZdlN5BZ4JpFsbH1LFTn_tfbvDWtWHBEA_m4O8wuZpHuA__JpG6LoHNMDbVEcnft6EHLO=
+hwebwtDXXeYmVUw6DcaH5Sxen" class=3D"x_button__text" =
+style=3D"font-size:16px; text-decoration:none; display:block; =
+color:#fff; padding:20px 25px">Je
+ bestelling bekijken</a></td>
+</tr>
+</tbody>
+</table>
+<table class=3D"x_link x_secondary-action-cell" =
+style=3D"border-spacing:0; border-collapse:collapse; margin-top:19px">
+<tbody>
+<tr>
+<td class=3D"x_link__cell" align=3D"center" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; border-radius:4px">
+of <a =
+href=3D"https://winkel.beterboompje.nl/_t/c/v3/AAAaCa9aAOKxnPS0-5buMjGLFZ=
+7Jy7EGBYxJkXczV6BFj0BKVVHEBv3bxhcLoGHgXspj3ULir26f6DeLpo10cdhhMHJ6D7Jzc1q=
+P4ooVlDPTV5tBElUjmJeKSFYuy2jbZdHR4UTX0NNQKX3iw_cq4X_W7AbCAt35wItb6o-SOD0k=
+CBjlInTLLZ9wOK_OOCOBbzg6aLr8xF5GbxcoQmncF4WDt7JbZh4-Hy16H4q1C0aJGXEfcIxWK=
+ENMOlPuc0vJNfInuWJKdZAa9WYfApUCx6L2Eii_Uml0021iPVfxfo7KFse4tlIVfg2m9JfmOZ=
+6Oi_NiLm_ZggDtfpPp4xp2Qj-bqKDVkgozCuGkx4k=3D" style=3D"font-size:16px; =
+text-decoration:none; color:#7673d4">
+Bezoek onze winkel</a> </td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+</center>
+</td>
+</tr>
+</tbody>
+</table>
+<table class=3D"x_row x_section" style=3D"width:100%; border-spacing:0; =
+border-collapse:collapse">
+<tbody>
+<tr>
+<td class=3D"x_section__cell" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding:40px 0">
+<center>
+<table class=3D"x_container" style=3D"width:560px; text-align:left; =
+border-spacing:0; border-collapse:collapse; margin:0 auto">
+<tbody>
+<tr>
+<td style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<h3 style=3D"font-weight:normal; font-size:20px; margin:0 0 =
+25px">Besteloverzicht</h3>
+</td>
+</tr>
+</tbody>
+</table>
+<table class=3D"x_container" style=3D"width:560px; text-align:left; =
+border-spacing:0; border-collapse:collapse; margin:0 auto">
+<tbody>
+<tr>
+<td style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<table class=3D"x_row" style=3D"width:100%; border-spacing:0; =
+border-collapse:collapse">
+<tbody>
+<tr class=3D"x_order-list__item" style=3D"width:100%; =
+border-top-width:1px; border-top-color:#e5e5e5; border-top-style:none">
+<td class=3D"x_order-list__item__cell" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<table style=3D"border-spacing:0; border-collapse:collapse">
+<tbody>
+<tr>
+<td style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<img align=3D"left" width=3D"60" height=3D"60" =
+class=3D"x_order-list__product-image" style=3D"margin-right:15px; =
+border-radius:8px; border:1px solid #e5e5e5" =
+src=3D"https://cdn.shopify.com/s/files/1/0611/1618/6867/files/BB_PICKUP_M=
+ET_175-200_6e3044ab-ebc4-40f4-ad78-5dd27fcedc8e_compact_cropped.jpg?v=3D1=
+762464922">
+</td>
+<td class=3D"x_order-list__product-description-cell" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; width:100%">
+<span class=3D"x_order-list__item-title" style=3D"font-size:16px; =
+font-weight:600; line-height:1.4; color:#555">Den Haag Pluk - BB met =
+kluit (incl. =E2=82=AC10 borg)&nbsp;=C3=97&nbsp;1</span><br>
+<span class=3D"x_order-list__item-variant" style=3D"font-size:14px; =
+color:#999; font-weight:400">175-200 cm</span><br>
+</td>
+<td class=3D"x_order-list__price-cell" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; white-space:nowrap">
+<p class=3D"x_order-list__item-price" align=3D"right" =
+style=3D"color:#555; line-height:150%; font-size:16px; font-weight:600; =
+margin:4px 0 0 15px">
+=E2=82=AC68,95 </p>
+</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<table class=3D"x_row x_subtotal-lines" style=3D"width:100%; =
+border-spacing:0; border-collapse:collapse; margin-top:15px; =
+border-top-width:1px; border-top-color:#e5e5e5; border-top-style:solid">
+<tbody>
+<tr>
+<td class=3D"x_subtotal-spacer" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; width:40%">
+</td>
+<td style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<table class=3D"x_row x_subtotal-table" style=3D"width:100%; =
+border-spacing:0; border-collapse:collapse; margin-top:20px">
+<tbody>
+<tr class=3D"x_subtotal-line">
+<td class=3D"x_subtotal-line__title" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding:2px 0">
+<p style=3D"color:#777; line-height:1.2em; font-size:16px; margin:4px 0 =
+0"><span style=3D"font-size:16px">Subtotaal</span>
+</p>
+</td>
+<td class=3D"x_subtotal-line__value" align=3D"right" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding:2px 0">
+<strong style=3D"font-size:16px; color:#555">=E2=82=AC68,95</strong> =
+</td>
+</tr>
+<tr class=3D"x_subtotal-line">
+<td class=3D"x_subtotal-line__title" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding:2px 0">
+<p style=3D"color:#777; line-height:1.2em; font-size:16px; margin:4px 0 =
+0"><span style=3D"font-size:16px">Verzending</span>
+</p>
+</td>
+<td class=3D"x_subtotal-line__value" align=3D"right" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding:2px 0">
+<strong style=3D"font-size:16px; color:#555">=E2=82=AC0,00</strong> =
+</td>
+</tr>
+<tr class=3D"x_subtotal-line">
+<td class=3D"x_subtotal-line__title" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding:2px 0">
+<p style=3D"color:#777; line-height:1.2em; font-size:16px; margin:4px 0 =
+0"><span style=3D"font-size:16px">Btw</span>
+</p>
+</td>
+<td class=3D"x_subtotal-line__value" align=3D"right" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding:2px 0">
+<strong style=3D"font-size:16px; color:#555">=E2=82=AC5,69</strong> =
+</td>
+</tr>
+<tr class=3D"x_subtotal-line">
+<td class=3D"x_subtotal-line__title" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding:2px 0">
+<p style=3D"color:#777; line-height:1.2em; font-size:16px; margin:4px 0 =
+0"><span style=3D"font-size:16px">Tip</span>
+</p>
+</td>
+<td class=3D"x_subtotal-line__value" align=3D"right" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding:2px 0">
+<strong style=3D"font-size:16px; color:#555">=E2=82=AC3,45</strong> =
+</td>
+</tr>
+</tbody>
+</table>
+<table class=3D"x_row x_subtotal-table x_subtotal-table--total" =
+style=3D"width:100%; border-spacing:0; border-collapse:collapse; =
+margin-top:20px; border-top-width:2px; border-top-color:#e5e5e5; =
+border-top-style:solid">
+<tbody>
+<tr class=3D"x_subtotal-line">
+<td class=3D"x_subtotal-line__title" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding:20px 0 0">
+<p style=3D"color:#777; line-height:1.2em; font-size:16px; margin:4px 0 =
+0"><span style=3D"font-size:16px">Totaal</span>
+</p>
+</td>
+<td class=3D"x_subtotal-line__value" align=3D"right" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding:20px 0 0">
+<strong style=3D"font-size:24px; color:#555">=E2=82=AC72,40 EUR</strong> =
+</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+</center>
+</td>
+</tr>
+</tbody>
+</table>
+<table class=3D"x_row x_section" style=3D"width:100%; border-spacing:0; =
+border-collapse:collapse">
+<tbody>
+<tr>
+<td class=3D"x_section__cell" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding:40px 0">
+<center>
+<table class=3D"x_container" style=3D"width:560px; text-align:left; =
+border-spacing:0; border-collapse:collapse; margin:0 auto">
+<tbody>
+<tr>
+<td style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<h3 style=3D"font-weight:normal; font-size:20px; margin:0 0 =
+25px">Aangepaste informatie</h3>
+</td>
+</tr>
+</tbody>
+</table>
+<table class=3D"x_container" style=3D"width:560px; text-align:left; =
+border-spacing:0; border-collapse:collapse; margin:0 auto">
+<tbody>
+<tr>
+<td style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<table class=3D"x_row" style=3D"width:100%; border-spacing:0; =
+border-collapse:collapse">
+<tbody>
+<tr>
+<td class=3D"x_customer-info__item" valign=3D"top" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding-bottom:40px; =
+width:50%">
+<h4 style=3D"font-weight:500; font-size:16px; color:#555; margin:0 0 =
+5px">Factuuradres</h4>
+<p style=3D"color:#777; line-height:150%; font-size:16px; =
+margin:0">Annemieke Gelder<br>
+Maziestraat 2-A<br>
+2514 GT Den Haag<br>
+Nederland</p>
+</td>
+</tr>
+</tbody>
+</table>
+<table class=3D"x_row" style=3D"width:100%; border-spacing:0; =
+border-collapse:collapse">
+<tbody>
+<tr>
+<td class=3D"x_customer-info__item" valign=3D"top" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding-bottom:40px; =
+width:50%">
+<h4 style=3D"font-weight:500; font-size:16px; color:#555; margin:0 0 =
+5px">Betaalmethode</h4>
+<p class=3D"x_customer-info__item-content" style=3D"color:#777; =
+line-height:150%; font-size:16px; margin:0">
+<img class=3D"x_customer-info__item-credit" height=3D"24" =
+alt=3D"unknown" style=3D"height:24px; display:inline-block; =
+margin-right:10px; margin-top:5px" =
+src=3D"https://cdn.shopify.com/shopifycloud/shopify/assets/themes_support=
+/notifications/generic-229db4a6cffbab8929ead62830dd63e0f6c42bcd74e5e55c8f=
+2aef84fd97cf18.png">
+<span style=3D"font-size:16px">eindigt op =E2=80=A2=E2=80=A2=E2=80=A2 =
+</span></p>
+</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+</center>
+</td>
+</tr>
+</tbody>
+</table>
+<table class=3D"x_row x_footer" style=3D"width:100%; border-spacing:0; =
+border-collapse:collapse; border-top-width:1px; =
+border-top-color:#e5e5e5; border-top-style:solid">
+<tbody>
+<tr>
+<td class=3D"x_footer__cell" =
+style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif; padding:35px 0">
+<center>
+<table class=3D"x_container" style=3D"width:560px; text-align:left; =
+border-spacing:0; border-collapse:collapse; margin:0 auto">
+<tbody>
+<tr>
+<td style=3D"font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe =
+UI&quot;,&quot;Roboto&quot;,&quot;Oxygen&quot;,&quot;Ubuntu&quot;,&quot;C=
+antarell&quot;,&quot;Fira Sans&quot;,&quot;Droid =
+Sans&quot;,&quot;Helvetica Neue&quot;,sans-serif">
+<p class=3D"x_disclaimer__subtext" style=3D"color:#999; =
+line-height:150%; font-size:14px; margin:0">
+Als je vragen hebt, kun je deze e-mail beantwoorden of ons e-mailen op =
+<a href=3D"mailto:support@beterboompje.nl" style=3D"font-size:14px; =
+text-decoration:none; color:#7673d4">
+support@beterboompje.nl</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+</center>
+</td>
+</tr>
+</tbody>
+</table>
+<img class=3D"x_spacer" height=3D"1" style=3D"min-width:600px; height:0" =
+src=3D"https://cdn.shopify.com/shopifycloud/shopify/assets/themes_support=
+/notifications/spacer-1a26dfd5c56b21ac888f9f1610ef81191b571603cb207c6c0f5=
+64148473cab3c.png">
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+</html>
+
+------=_NextPart_000_00A8_01DC6D3D.D874D400--

@@ -1,0 +1,29 @@
+Name,Type,Value,Unit,Linked Variable
+Background/primary,Color,Neutral /black,,true
+Background/secondary,Color,Brand/blue,,true
+Background/tertiary,Color,Brand/pink,,true
+Background/alternate,Color,Neutral /white,,true
+Background/success,Color,System/success-background,,true
+Background/warning,Color,System/warning-background,,true
+Background/error,Color,System/error-background,,true
+Border Color/primary,Color,Neutral/neutral-lightest,,true
+Border Color/secondary,Color,Brand/blue,,true
+Border Color/alternate,Color,Neutral/neutral-darker,,true
+Link Color/primary,Color,Brand/blue,,true
+Link Color/secondary,Color,Neutral /black,,true
+Link Color/alternate,Color,Neutral /white,,true
+Text Color/primary,Color,Neutral /black,,true
+Text Color/secondary,Color,Neutral/neutral-darker,,true
+Text Color/alternate,Color,Neutral /white,,true
+Text Color/success,Color,System/success-text,,true
+Text Color/warning,Color,System/warning-text,,true
+Text Color/error,Color,System/error-text,,true
+System/success-background,Color,Brand/green,,true
+System/success-text,Color,Brand/green-darker,,true
+System/warning-background,Color,Brand/yellow,,true
+System/warning-text,Color,Brand/yellow-darker,,true
+System/error-background,Color,Brand/red,,true
+System/error-text,Color,Brand/red-darker,,true
+System/focus-state,Color,Brand/blue,,true
+System/selection-text,Color,Neutral /white,,true
+System/selection-background,Color,Brand/blue,,true

@@ -1,0 +1,43 @@
+Name,Type,Value,Unit,Linked Variable
+Body/body-font-size,Size,1,rem,false
+Body/body-font-weight,Number,Font Weight/normal,,true
+Body/body-line-height,Number,Font Height/xlarge,,true
+Body/body-letter-spacing,Size,Letter Spacing/default,,true
+H1/h1-font-size,Size,4,rem,false
+H1/h1-font-weight,Number,Font Weight/bold,,true
+H1/h1-line-height,Number,Font Height/small,,true
+H1/h1-letter-spacing,Size,Letter Spacing/default,,true
+H2/h2-font-size,Size,3,rem,false
+H2/h2-font-weight,Number,Font Weight/bold,,true
+H2/h2-line-height,Number,Font Height/medium,,true
+H2/h2-letter-spacing,Size,Letter Spacing/default,,true
+H3/h3-font-size,Size,2,rem,false
+H3/h3-font-weight,Number,Font Weight/bold,,true
+H3/h3-line-height,Number,Font Height/medium,,true
+H3/h3-letter-spacing,Size,Letter Spacing/default,,true
+H4/h4-font-size,Size,1.5,rem,false
+H4/h4-font-weight,Number,Font Weight/bold,,true
+H4/h4-line-height,Number,Font Height/large,,true
+H4/h4-letter-spacing,Size,Letter Spacing/default,,true
+H5/h5-font-size,Size,1.25,rem,false
+H5/h5-font-weight,Number,Font Weight/bold,,true
+H5/h5-line-height,Number,Font Height/xlarge,,true
+H5/h5-letter-spacing,Size,Letter Spacing/default,,true
+H6/h6-font-size,Size,0.875,rem,false
+H6/h6-font-weight,Number,Font Weight/bold,,true
+H6/h6-line-height,Number,Font Height/xlarge,,true
+H6/h6-letter-spacing,Size,Letter Spacing/default,,true
+Font Size/tiny,Size,0.75,rem,false
+Font Size/small,Size,0.875,rem,false
+Font Size/regular,Size,1,rem,false
+Font Size/medium,Size,1.25,rem,false
+Font Size/large,Size,1.5,rem,false
+Font Height/small,Number,1.1,,false
+Font Height/medium,Number,1.2,,false
+Font Height/large,Number,1.4,,false
+Font Height/xlarge,Number,1.5,,false
+Letter Spacing/tighter,Size,-0.25,rem,false
+Letter Spacing/tight,Size,-0.125,rem,false
+Letter Spacing/default,Size,0,rem,false
+Letter Spacing/wide,Size,0.125,rem,false
+Letter Spacing/wider,Size,0.25,rem,false
