@@ -128,6 +128,36 @@ function totalsFor(rows: Line[]) {
 
 const grandTotals = totalsFor(allLines);
 
+// ── Productoverzicht: alle varianten als basis, inkoop-data aangevuld ──
+type ProductSummary = {
+  sku_pattern: string;
+  display_label: string | null;
+  color_name: string | null;
+  totalAantal: number;
+  totalInkoop: number;
+  totalMarge: number;
+  lineCount: number;
+  statuses: Record<string, number>;
+};
+
+const productSummary: ProductSummary[] = (variants ?? []).map((v: any) => {
+  const matching = allLines.filter(l => l.categorie_code === v.sku_pattern);
+  const statuses: Record<string, number> = {};
+  for (const l of matching) {
+    statuses[l.status] = (statuses[l.status] ?? 0) + 1;
+  }
+  return {
+    sku_pattern: v.sku_pattern,
+    display_label: v.display_label ?? null,
+    color_name: v.color_name ?? null,
+    totalAantal: matching.reduce((s, l) => s + l.aantal, 0),
+    totalInkoop: matching.reduce((s, l) => s + l.totale_inkoop, 0),
+    totalMarge: matching.reduce((s, l) => s + l.totale_marge, 0),
+    lineCount: matching.length,
+    statuses,
+  };
+});
+
 function fmtEur(n: number | null): string {
   if (n === null || n === undefined) return "—";
   return "€\u00a0" + n.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -216,6 +246,11 @@ for (const l of allLines) {
     <button class="tab active" data-tab="totaal" id="tab-totaal">
       {`Totaal (${allLines.length})`}
     </button>
+    {productSummary.length > 0 && (
+      <button class="tab" id="tab-producten">
+        {`Producten (${productSummary.length})`}
+      </button>
+    )}
     {doelMeta.map((m) => (
       <button class="tab" id={m.tabId}>
         {`${m.label} (${m.cnt})`}
@@ -299,6 +334,71 @@ for (const l of allLines) {
       </div>
     )}
   </div>
+
+  <!-- Tab: Producten (alle varianten als basis, ook zonder inkoopregels) -->
+  {productSummary.length > 0 && (
+    <div class="tab-panel" id="panel-producten" style="display:none">
+      <div class="table-wrapper">
+        <table class="ink-table">
+          <thead>
+            <tr>
+              <th>Categorie</th>
+              <th>Product</th>
+              <th>Kleur</th>
+              <th class="num-col">Regels</th>
+              <th class="num-col">Totaal besteld</th>
+              <th class="num-col">Totale inkoop</th>
+              <th class="num-col">Totale marge</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {productSummary.map((p) => (
+              <tr class={p.lineCount === 0 ? "ink-row row-missing" : "ink-row"}>
+                <td class="code-cell">{p.sku_pattern}</td>
+                <td class="naam-cell">{p.display_label || "—"}</td>
+                <td>
+                  {p.color_name && (
+                    <span>
+                      <span style={colorDotStyle(p.color_name)}></span>
+                      {p.color_name}
+                    </span>
+                  )}
+                </td>
+                <td class="num-col">
+                  {p.lineCount === 0
+                    ? <span class="muted">0</span>
+                    : p.lineCount}
+                </td>
+                <td class="num-col">
+                  {p.totalAantal === 0
+                    ? <span class="muted">0</span>
+                    : p.totalAantal.toLocaleString("nl")}
+                </td>
+                <td class="num-col">
+                  {p.totalInkoop === 0 ? <span class="muted">—</span> : fmtEur(p.totalInkoop)}
+                </td>
+                <td class={"num-col marge-col " + (p.totalMarge < 0 ? "neg-cell" : p.totalMarge > 0 ? "pos-cell" : "")}>
+                  {p.totalMarge === 0 ? <span class="muted">—</span> : fmtEur(p.totalMarge)}
+                </td>
+                <td class="status-cell">
+                  {p.lineCount === 0 ? (
+                    <span class="status-badge status-geen">Geen order</span>
+                  ) : (
+                    Object.entries(p.statuses).map(([s, cnt]) => (
+                      <span class={"status-badge status-" + s} style="margin-right:0.2rem">
+                        {STATUS_LABELS[s] ?? s} {cnt > 1 ? `(${cnt})` : ""}
+                      </span>
+                    ))
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )}
 
   <div class="doel-panels">
     {doelMeta.map((m) => (
@@ -746,6 +846,9 @@ for (const l of allLines) {
   .status-besteld    { background: #1e3a5f; color: #60a5fa; }
   .status-geleverd   { background: #064e3b; color: #34d399; }
   .status-geannuleerd{ background: #7f1d1d33; color: #f87171; }
+  .status-geen       { background: #1f293766; color: #6b7280; }
+  .row-missing td    { opacity: 0.6; }
+  .status-cell       { white-space: nowrap; }
 
   /* Edit / delete knoppen */
   .btn-edit, .btn-del {

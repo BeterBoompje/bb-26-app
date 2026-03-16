@@ -7,6 +7,7 @@ if (!auth) return Astro.redirect("/signin");
 if (auth.forbidden) return Astro.redirect("/app");
 
 const { supabase, profile } = auth;
+const project_id = profile!.project_id as string | null | undefined;
 
 // Seizoenen
 const { data: seasons } = await supabase
@@ -47,6 +48,13 @@ type OverzichtRow = {
 const overzicht: OverzichtRow[] = [];
 
 if (currentSeason) {
+  // Laad alle product-varianten als master-lijst (basis voor alle rijen)
+  const { data: masterVariants } = await supabase
+    .from("product_variants")
+    .select("sku_pattern, display_label")
+    .eq("project_id", project_id ?? "")
+    .order("sort_order");
+
   const { data: lines } = await supabase
     .from("inventory_lines")
     .select(`
@@ -59,6 +67,21 @@ if (currentSeason) {
 
   // Groepeer per category_code (over meerdere distributeurs)
   const grouped: Record<string, OverzichtRow> = {};
+
+  // Seed met product_variants zodat alle producten zichtbaar zijn (ook met 0)
+  for (const v of masterVariants ?? []) {
+    grouped[v.sku_pattern] = {
+      category_code: v.sku_pattern,
+      display_label: v.display_label ?? null,
+      voorraad: 0,
+      ingekocht: 0,
+      extra: 0,
+      beschikbaar: 0,
+      verkocht: 0,
+      restant: 0,
+      distributors: [],
+    };
+  }
 
   for (const line of lines ?? []) {
     const code = line.category_code;
@@ -79,6 +102,10 @@ if (currentSeason) {
         restant: 0,
         distributors: [],
       };
+    }
+    // Update display_label vanuit inventory_lines als niet in master-lijst
+    if (!grouped[code].display_label && line.display_label) {
+      grouped[code].display_label = line.display_label;
     }
     grouped[code].voorraad += line.voorraad;
     grouped[code].ingekocht += line.ingekocht;
@@ -246,9 +273,9 @@ function fmtDate(d: string | null): string {
   <div id="panel-overzicht" class="tab-panel">
     {overzicht.length === 0 ? (
       <div class="empty-state">
-        Geen voorraaddata beschikbaar voor {currentSeason?.label ?? "dit seizoen"}.
+        Geen productdata beschikbaar voor {currentSeason?.label ?? "dit seizoen"}.
         <br />
-        <a href="/app/dashboard/admin/distributeurs" class="link">Voeg eerst distributeurs en voorraad toe →</a>
+        <a href="/app/dashboard/admin/distributeurs" class="link">Voeg distributeurs en voorraad toe →</a>
       </div>
     ) : (
       <div class="table-wrapper">
@@ -261,9 +288,9 @@ function fmtDate(d: string | null): string {
               <th class="num-col">Voorraad</th>
               <th class="num-col">Ingekocht</th>
               <th class="num-col">Extra</th>
-              <th class="num-col total-col">Beschikbaar</th>
+              <th class="num-col total-col">Begin voorraad</th>
               <th class="num-col sold-col">Verkocht</th>
-              <th class="num-col rest-col">Restant</th>
+              <th class="num-col rest-col">Resterend</th>
             </tr>
           </thead>
           <tbody>

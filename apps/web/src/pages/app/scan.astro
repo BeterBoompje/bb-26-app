@@ -493,6 +493,7 @@ const { data: locations } = await auth.supabase
   let lastScanned = "";
   let lastScannedTimeout = null;
   let cameraRunning = false;
+  let userStopped = false; // true als gebruiker zelf stop heeft geklikt
 
   // ── Elements ───────────────────────────────────────────
   const btnLocation     = document.getElementById("btn-location");
@@ -522,6 +523,8 @@ const { data: locations } = await auth.supabase
         selectedLocation = JSON.parse(saved);
         locationName.textContent = selectedLocation.name;
         btnStartCamera.disabled = false;
+        // Auto-start camera na herstel (b.v. terug-navigatie na bestelling afhandelen)
+        setTimeout(startCamera, 200);
       }
     } catch { /* ignore */ }
   }
@@ -579,11 +582,25 @@ const { data: locations } = await auth.supabase
   });
 
   // ── Camera ─────────────────────────────────────────────
-  btnStartCamera.addEventListener("click", startCamera);
-  btnStopCamera.addEventListener("click", stopCamera);
+  btnStartCamera.addEventListener("click", () => {
+    userStopped = false;
+    startCamera();
+  });
+  btnStopCamera.addEventListener("click", async () => {
+    userStopped = true;
+    await stopCamera();
+  });
 
   async function startCamera() {
     if (!selectedLocation) { locationPicker.style.display = "flex"; return; }
+    if (cameraRunning) return;
+
+    // Ruim eventuele stale instantie op (b.v. na bfcache-herstel)
+    if (qrScanner) {
+      try { await qrScanner.stop(); } catch { /* negeer */ }
+      qrScanner = null;
+    }
+
     cameraPrompt.classList.add("hidden");
     btnStopCamera.style.display = "";
     cameraRunning = true;
@@ -605,12 +622,36 @@ const { data: locations } = await auth.supabase
   }
 
   async function stopCamera() {
-    if (qrScanner?.isScanning) await qrScanner.stop();
+    if (qrScanner?.isScanning) {
+      try { await qrScanner.stop(); } catch { /* negeer */ }
+    }
     qrScanner = null;
     cameraRunning = false;
     cameraPrompt.classList.remove("hidden");
     btnStopCamera.style.display = "none";
   }
+
+  // Herstart camera automatisch als de pagina weer zichtbaar wordt
+  // (b.v. terug-navigatie vanuit bestelling-pagina)
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      // Stop camera bij verlaten pagina (geeft camera vrij)
+      if (cameraRunning) stopCamera();
+    } else if (document.visibilityState === "visible") {
+      // Herstart als gebruiker niet zelf gestopt heeft
+      if (selectedLocation && !cameraRunning && !userStopped) {
+        setTimeout(startCamera, 200);
+      }
+    }
+  });
+
+  // bfcache: iOS Safari slaat pagina op in geheugen; pageshow.persisted = true bij terugkeren
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted && selectedLocation && !cameraRunning) {
+      userStopped = false;
+      setTimeout(startCamera, 200);
+    }
+  });
 
   function onQrDetected(qrValue) {
     if (qrValue === lastScanned) return;
@@ -678,7 +719,7 @@ const { data: locations } = await auth.supabase
         <a class="btn-view-details" href="/app/order/${target.id}">Bekijk bestellingdetails</a>
       `;
     } else if (eligibility === "already_picked_up" && target) {
-      actionBtns = `<a class="btn-view-order btn-secondary" href="/app/order/${target.id}">Bekijk bestelling →</a>`;
+      actionBtns = `<a class="btn-view-order" href="/app/order/${target.id}">Bekijk bestelling</a>`;
     }
 
     const closeBtn = `<button class="btn-close-panel" id="btn-close-panel">Sluiten</button>`;
