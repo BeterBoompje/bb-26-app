@@ -154,10 +154,16 @@ const { data: locations } = await auth.supabase
   /* ── Camera viewport ─────────────────────────────────── */
   .viewport-wrap {
     flex: 1;
+    max-height: calc(100dvh - 8rem); /* top-bar ~3rem + toolbar ~3rem + safe areas */
     position: relative;
     overflow: hidden;
     background: #000;
     min-height: 0;
+    transition: max-height 0.3s ease;
+  }
+
+  .viewport-wrap.panel-open {
+    max-height: 35vh;
   }
 
   #qr-reader {
@@ -170,16 +176,13 @@ const { data: locations } = await auth.supabase
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
+    display: block !important;
   }
 
-  /* Hide html5-qrcode default UI chrome */
-  #qr-reader img,
-  #qr-reader button,
-  #qr-reader select,
-  #qr-reader span[style],
-  #qr-reader > div > div:last-child {
-    display: none !important;
-  }
+  /* Hide ALL html5-qrcode injected UI (rings, buttons, labels) */
+  #qr-reader > div { display: none !important; }
+  #qr-reader video { display: block !important; }
+  #qr-reader svg { display: none !important; }
 
   /* ── Corner overlay ──────────────────────────────────── */
   .corner-overlay {
@@ -514,6 +517,7 @@ const { data: locations } = await auth.supabase
   const resultPanel     = document.getElementById("result-panel");
   const resultContent   = document.getElementById("result-content");
   const scanFrame       = document.getElementById("scan-frame");
+  const viewportWrap    = document.getElementById("viewport-wrap");
 
   // ── Init: herstel locatie uit localStorage ─────────────
   function initLocation() {
@@ -741,10 +745,12 @@ const { data: locations } = await auth.supabase
   function showPanel(html) {
     resultContent.innerHTML = html;
     resultPanel.classList.add("open");
+    viewportWrap?.classList.add("panel-open");
   }
 
   function closePanel() {
     resultPanel.classList.remove("open");
+    viewportWrap?.classList.remove("panel-open");
     setTimeout(() => { resultContent.innerHTML = ""; }, 350);
   }
 

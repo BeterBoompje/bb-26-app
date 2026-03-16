@@ -1,5 +1,5 @@
 ---
-import DashboardLayout from "../../../../layouts/DashboardLayout.astro";
+import StaffDashboardLayout from "../../../../layouts/StaffDashboardLayout.astro";
 import { requireStaff } from "../../../../lib/auth";
 
 const auth = await requireStaff(Astro.cookies);
@@ -73,7 +73,7 @@ function fmt(iso: string | null) {
 }
 ---
 
-<DashboardLayout title="Locatie Dashboard" userName={profile?.full_name}>
+<StaffDashboardLayout title="Locatie Dashboard" userName={profile?.full_name}>
 
   <div class="dash-header">
     <div class="location-badge-row">
@@ -159,7 +159,7 @@ function fmt(iso: string | null) {
     }
   </div>
 
-</DashboardLayout>
+</StaffDashboardLayout>
 
 <style>
   .dash-header {

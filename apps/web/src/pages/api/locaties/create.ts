@@ -1,20 +1,11 @@
 import type { APIRoute } from "astro";
 import { requireAdmin } from "../../../lib/auth";
 
-/**
- * POST /api/distributeurs/create
- * Body: { name, code?, contact_name?, contact_email?, notes? }
- *
- * project_id wordt server-side opgezocht via de ingelogde admin —
- * de client hoeft dat nooit te sturen (veiliger + simpler).
- */
 export const POST: APIRoute = async ({ request, cookies }) => {
   const auth = await requireAdmin(cookies);
   if (!auth) return new Response(JSON.stringify({ error: "Niet ingelogd" }), { status: 401 });
   if (auth.forbidden) return new Response(JSON.stringify({ error: "Geen toegang" }), { status: 403 });
 
-  // project_id zit in het profile object (zie auth.ts).
-  // Fallback: als het null is, pak het eerste actieve project (BB heeft er maar één).
   let project_id = auth.profile!.project_id as string | null | undefined;
   if (!project_id) {
     const { data: proj } = await auth.supabase
@@ -26,19 +17,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     project_id = proj?.id;
   }
   if (!project_id) {
-    return new Response(
-      JSON.stringify({ error: "Geen project gevonden. Controleer de database-configuratie." }),
-      { status: 400 }
-    );
+    return new Response(JSON.stringify({ error: "Geen project gevonden." }), { status: 400 });
   }
 
   let body: {
     name?: string;
     code?: string;
-    contact_name?: string;
-    contact_email?: string;
-    notes?: string;
-    partner_type?: string;
+    city?: string;
+    is_active?: string | boolean;
   };
   try {
     body = await request.json();
@@ -46,27 +32,24 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: "Ongeldige JSON" }), { status: 400 });
   }
 
-  const { name, code, contact_name, contact_email, notes, partner_type } = body;
+  const { name, code, city, is_active } = body;
 
   if (!name?.trim()) {
     return new Response(JSON.stringify({ error: "name vereist" }), { status: 400 });
   }
-
-  const validTypes = ["supplier", "pickup_location", "both"];
-  const resolvedType = partner_type && validTypes.includes(partner_type)
-    ? partner_type
-    : "pickup_location";
+  if (!code?.trim()) {
+    return new Response(JSON.stringify({ error: "code vereist" }), { status: 400 });
+  }
 
   const { data, error } = await auth.supabase
-    .from("distributors")
+    .from("locations")
     .insert({
       project_id,
       name: name.trim(),
-      code: code?.trim() || null,
-      contact_name: contact_name?.trim() || null,
-      contact_email: contact_email?.trim() || null,
-      notes: notes?.trim() || null,
-      partner_type: resolvedType,
+      slug: code.trim().toLowerCase(),
+      code: code.trim().toLowerCase(),
+      city: city?.trim() || null,
+      is_active: is_active === false || is_active === "false" ? false : true,
     })
     .select("id, name, code")
     .single();
@@ -74,12 +57,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (error) {
     const msg =
       error.code === "23505"
-        ? "Een distributor met deze code bestaat al voor dit project."
+        ? "Een locatie met deze code bestaat al voor dit project."
         : error.message;
     return new Response(JSON.stringify({ error: msg }), { status: 400 });
   }
 
-  return new Response(JSON.stringify({ success: true, distributor: data }), {
+  return new Response(JSON.stringify({ success: true, location: data }), {
     status: 201,
     headers: { "Content-Type": "application/json" },
   });
