@@ -1,25 +1,24 @@
 import type { APIRoute } from "astro";
-import { createServerClient } from "../../../lib/supabase/server";
+import { requireStaff } from "../../../lib/auth";
+import { parseBody, jsonError, UNAUTHORIZED, FORBIDDEN } from "../../../lib/api-helpers";
 
 export const POST: APIRoute = async ({ request, cookies }) => {
-  const { supabase, session } = await createServerClient(cookies);
-  if (!session) {
-    return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
-  }
+  // Vereist actieve staff-membership — aanmelden als "ingelogd zijn" is niet genoeg
+  const auth = await requireStaff(cookies);
+  if (!auth) return UNAUTHORIZED();
+  if (auth.forbidden) return FORBIDDEN();
 
-  let body: { qr_value: string; location_id: string };
-  try {
-    body = await request.json();
-  } catch {
-    return new Response(JSON.stringify({ error: "invalid_json" }), { status: 400 });
-  }
+  const { supabase } = auth;
 
-  const { qr_value, location_id } = body;
+  const parsed = await parseBody<{ qr_value: string; location_id: string }>(request);
+  if (parsed.error) return parsed.error;
+
+  const { qr_value, location_id } = parsed.data;
   if (!qr_value || !location_id) {
-    return new Response(JSON.stringify({ error: "missing_fields" }), { status: 400 });
+    return jsonError("qr_value en location_id zijn verplicht");
   }
 
-  // Look up pickup target met order + klantinfo
+  // Zoek pickup target met order + klantinfo
   const { data: target } = await supabase
     .from("pickup_targets")
     .select(`
@@ -48,7 +47,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     );
   }
 
-  // Check eligibility via RPC
+  // Eligibility via RPC (bevat alle business rules in SQL)
   const { data: eligibility } = await supabase
     .rpc("resolve_pickup_eligibility", {
       p_pickup_target_id: target.id,
